@@ -12,6 +12,8 @@ const NAV_ITEMS = [
 export function NavHeader() {
   const pathname = usePathname();
 
+  if (pathname === "/login") return null;
+
   return (
     <header className="border-b bg-background">
       <nav className="flex items-center gap-6 px-6 h-14">
