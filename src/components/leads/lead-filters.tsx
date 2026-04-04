@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
+  DropdownMenuGroup,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
@@ -133,13 +133,14 @@ export function LeadFilters({
             Add Filter
           </DropdownMenuTrigger>
           <DropdownMenuContent>
-            <DropdownMenuLabel>Filter by column</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {filterableColumns.map((col) => (
-              <DropdownMenuItem key={col.key} onClick={() => addFilter(col.key)}>
-                {col.label}
-              </DropdownMenuItem>
-            ))}
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Filter by column</DropdownMenuLabel>
+              {filterableColumns.map((col) => (
+                <DropdownMenuItem key={col.key} onClick={() => addFilter(col.key)}>
+                  {col.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuGroup>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
