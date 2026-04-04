@@ -37,6 +37,9 @@ export default function LeadsPage() {
   // Track refetch trigger
   const [refetchKey, setRefetchKey] = useState(0);
 
+  // Columns added via "Add Column" button (persist until page reload)
+  const [extraColumns, setExtraColumns] = useState<string[]>([]);
+
   // ── Derived ──────────────────────────────────────────────────────────
   const customFieldKeys = useMemo(() => {
     const keys = new Set<string>();
@@ -47,8 +50,12 @@ export default function LeadsPage() {
         }
       }
     }
+    // Include columns added via UI even if no data yet
+    for (const col of extraColumns) {
+      keys.add(col);
+    }
     return Array.from(keys);
-  }, [leads]);
+  }, [leads, extraColumns]);
 
   // ── Load clients once ───────────────────────────────────────────────
   useEffect(() => {
@@ -109,6 +116,8 @@ export default function LeadsPage() {
 
   const handleSort = useCallback(
     (col: string) => {
+      // Custom fields can't be sorted server-side (JSONB)
+      if (col.startsWith("cf:")) return;
       if (col === sortColumn) {
         setSortDir((d) => (d === "asc" ? "desc" : "asc"));
       } else {
@@ -227,6 +236,8 @@ export default function LeadsPage() {
           sortDir={sortDir}
           onSort={handleSort}
           onLeadUpdated={refetch}
+          extraColumns={extraColumns}
+          onAddColumn={(name) => setExtraColumns((prev) => [...prev, name])}
         />
       )}
 

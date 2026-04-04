@@ -82,7 +82,9 @@ function applyFilters<T extends { eq: any; or: any; ilike: any; filter: any }>(
   }
 
   if (params.search) {
-    const term = `%${params.search}%`;
+    // Escape LIKE wildcards in search term
+    const escaped = params.search.replace(/[%_\\]/g, "\\$&");
+    const term = `%${escaped}%`;
     const orClauses = SEARCHABLE_COLUMNS.map((c) => `${c}.ilike.${term}`).join(
       ","
     );
@@ -91,16 +93,20 @@ function applyFilters<T extends { eq: any; or: any; ilike: any; filter: any }>(
 
   if (params.filters?.length) {
     for (const f of params.filters) {
+      // Escape LIKE wildcards in filter value
+      const escapedVal = f.value.replace(/[%_\\]/g, "\\$&");
+
       if (f.column.startsWith("cf:")) {
         // Custom field filter — query JSONB
-        const key = f.column.slice(3);
+        // Sanitize key: only allow alphanumeric, spaces, hyphens, underscores
+        const key = f.column.slice(3).replace(/[^a-zA-Z0-9 _-]/g, "");
         q = q.filter(
           `custom_fields->>'${key}'`,
           "ilike",
-          `%${f.value}%`
+          `%${escapedVal}%`
         );
       } else {
-        q = q.ilike(f.column, `%${f.value}%`);
+        q = q.ilike(f.column, `%${escapedVal}%`);
       }
     }
   }
@@ -237,30 +243,48 @@ export async function bulkUpdateCustomField(
   fieldName: string,
   value: string
 ): Promise<void> {
-  // Supabase doesn't support JSONB merge in a single call for bulk,
-  // so we use an RPC or fall back to fetching + merging.
-  // Simplest approach: use raw SQL via rpc if available, otherwise batch update.
-  // For now: batch of 100, each update merges the key.
-  for (let i = 0; i < ids.length; i += 100) {
-    const chunk = ids.slice(i, i + 100);
-    // Use Postgres jsonb concatenation: custom_fields || '{"key": "value"}'
-    // Supabase JS doesn't support this natively, so we fetch + merge
-    const { data: leads, error: fetchErr } = await supabase
-      .from("leads")
-      .select("id, custom_fields")
-      .in("id", chunk);
+  // Use RPC for efficient bulk JSONB merge (single UPDATE per batch)
+  // Falls back to one-by-one if RPC not available
+  for (let i = 0; i < ids.length; i += 500) {
+    const chunk = ids.slice(i, i + 500);
 
-    if (fetchErr) throw new Error(fetchErr.message);
-    if (!leads) continue;
+    const { error: rpcErr } = await supabase.rpc("bulk_merge_custom_field", {
+      lead_ids: chunk,
+      field_name: fieldName,
+      field_value: value,
+    });
 
-    for (const lead of leads) {
-      const existing = (lead.custom_fields || {}) as Record<string, string>;
-      const merged = { ...existing, [fieldName]: value };
-      const { error } = await supabase
-        .from("leads")
-        .update({ custom_fields: merged })
-        .eq("id", lead.id);
-      if (error) throw new Error(error.message);
+    if (rpcErr) {
+      // RPC not available — fall back to fetch + merge
+      if (rpcErr.code === "42883" || rpcErr.message.includes("does not exist")) {
+        await bulkUpdateCustomFieldFallback(chunk, fieldName, value);
+      } else {
+        throw new Error(rpcErr.message);
+      }
     }
+  }
+}
+
+async function bulkUpdateCustomFieldFallback(
+  ids: string[],
+  fieldName: string,
+  value: string
+): Promise<void> {
+  const { data: leads, error: fetchErr } = await supabase
+    .from("leads")
+    .select("id, custom_fields")
+    .in("id", ids);
+
+  if (fetchErr) throw new Error(fetchErr.message);
+  if (!leads) return;
+
+  for (const lead of leads) {
+    const existing = (lead.custom_fields || {}) as Record<string, string>;
+    const merged = { ...existing, [fieldName]: value };
+    const { error } = await supabase
+      .from("leads")
+      .update({ custom_fields: merged })
+      .eq("id", lead.id);
+    if (error) throw new Error(error.message);
   }
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   Table,
   TableBody,
@@ -25,6 +25,8 @@ type Props = {
   sortDir: "asc" | "desc";
   onSort: (column: string) => void;
   onLeadUpdated: () => void;
+  extraColumns: string[];
+  onAddColumn: (name: string) => void;
 };
 
 export function LeadTable({
@@ -35,6 +37,8 @@ export function LeadTable({
   sortDir,
   onSort,
   onLeadUpdated,
+  extraColumns,
+  onAddColumn,
 }: Props) {
   const [addingColumn, setAddingColumn] = useState(false);
   const [newColumnName, setNewColumnName] = useState("");
@@ -43,6 +47,7 @@ export function LeadTable({
     field: string;
   } | null>(null);
   const [editValue, setEditValue] = useState("");
+  const savingRef = useRef(false); // Prevent double-save from Enter + onBlur
 
   // ── Compute visible columns (auto-hide empty) ──────────────────────
   const visibleRegularCols = LEAD_COLUMNS.filter((col) =>
@@ -52,7 +57,7 @@ export function LeadTable({
     })
   );
 
-  // Collect all custom field keys across current page
+  // Collect all custom field keys across current page + extra columns
   const customFieldKeys = new Set<string>();
   for (const lead of leads) {
     if (lead.custom_fields) {
@@ -61,14 +66,20 @@ export function LeadTable({
       }
     }
   }
+  for (const col of extraColumns) {
+    customFieldKeys.add(col);
+  }
 
-  // Only show custom columns that have at least one non-empty value
-  const visibleCustomCols = Array.from(customFieldKeys).filter((key) =>
-    leads.some((lead) => {
+  // Show custom columns: those with data OR those explicitly added
+  const visibleCustomCols = Array.from(customFieldKeys).filter((key) => {
+    // Always show columns that were explicitly added
+    if (extraColumns.includes(key)) return true;
+    // Otherwise only show if at least one lead has data
+    return leads.some((lead) => {
       const val = lead.custom_fields?.[key];
       return val != null && val !== "";
-    })
-  );
+    });
+  });
 
   // ── Selection ──────────────────────────────────────────────────────
   const allOnPageSelected =
@@ -100,28 +111,29 @@ export function LeadTable({
       toast.error("Column name cannot be empty");
       return;
     }
-    // The column will appear once at least one lead has a value in it.
-    // For now, just close the input — user will fill values via inline edit or bulk fill.
-    // We need to add an empty value so the column shows up
-    // Actually, let's just add it to all leads with empty string so the column header appears
-    // Better: just track it locally so it shows in the table
-    customFieldKeys.add(name);
+    if (customFieldKeys.has(name)) {
+      toast.error(`Column "${name}" already exists`);
+      setAddingColumn(false);
+      setNewColumnName("");
+      return;
+    }
+    onAddColumn(name);
     setAddingColumn(false);
     setNewColumnName("");
     toast.success(`Column "${name}" added. Click cells to fill values.`);
-    // Force re-render by triggering a refetch — the column won't have data yet
-    // but we want it visible. We'll store it in a local state.
-    onLeadUpdated();
   }
 
-  // ── Inline edit (custom fields) ────────────────────────────────────
+  // ── Inline edit ────────────────────────────────────────────────────
   function startEdit(leadId: string, field: string, currentValue: string) {
     setEditingCell({ leadId, field });
     setEditValue(currentValue);
   }
 
   async function saveEdit() {
-    if (!editingCell) return;
+    // Prevent double-save (Enter fires saveEdit, then onBlur fires it again)
+    if (savingRef.current || !editingCell) return;
+    savingRef.current = true;
+
     const { leadId, field } = editingCell;
     const value = editValue.trim();
 
@@ -139,7 +151,7 @@ export function LeadTable({
       } else {
         const { error } = await supabase
           .from("leads")
-          .update({ [field]: value })
+          .update({ [field]: value || null }) // empty string → null (cleaner for DB)
           .eq("id", leadId);
         if (error) throw error;
       }
@@ -149,12 +161,22 @@ export function LeadTable({
       toast.error(
         `Failed to save: ${err instanceof Error ? err.message : "Unknown error"}`
       );
+    } finally {
+      savingRef.current = false;
     }
+  }
+
+  function cancelEdit() {
+    if (savingRef.current) return;
+    setEditingCell(null);
   }
 
   // ── Sort icon ──────────────────────────────────────────────────────
   function SortIcon({ column }: { column: string }) {
-    if (sortColumn !== column) return <ArrowUpDown className="size-3.5 ml-1 opacity-40" />;
+    // Custom fields can't be sorted server-side
+    if (column.startsWith("cf:")) return null;
+    if (sortColumn !== column)
+      return <ArrowUpDown className="size-3.5 ml-1 opacity-40" />;
     return sortDir === "asc" ? (
       <ArrowUp className="size-3.5 ml-1" />
     ) : (
@@ -193,13 +215,7 @@ export function LeadTable({
           ))}
           {visibleCustomCols.map((key) => (
             <TableHead key={`cf-${key}`}>
-              <button
-                className="flex items-center text-xs font-medium hover:text-foreground transition-colors"
-                onClick={() => onSort(`cf:${key}`)}
-              >
-                {key}
-                <SortIcon column={`cf:${key}`} />
-              </button>
+              <span className="text-xs font-medium">{key}</span>
             </TableHead>
           ))}
           <TableHead className="w-10">
@@ -219,7 +235,11 @@ export function LeadTable({
                   className="w-32 h-7 text-xs"
                   autoFocus
                 />
-                <Button size="sm" className="h-7 px-2 text-xs" onClick={confirmAddColumn}>
+                <Button
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  onClick={confirmAddColumn}
+                >
                   OK
                 </Button>
               </div>
@@ -237,7 +257,10 @@ export function LeadTable({
       </TableHeader>
       <TableBody>
         {leads.map((lead) => (
-          <TableRow key={lead.id} data-state={selectedIds.has(lead.id) ? "selected" : undefined}>
+          <TableRow
+            key={lead.id}
+            data-state={selectedIds.has(lead.id) ? "selected" : undefined}
+          >
             <TableCell>
               <Checkbox
                 checked={selectedIds.has(lead.id)}
@@ -265,14 +288,18 @@ export function LeadTable({
                       onChange={(e) => setEditValue(e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter") saveEdit();
-                        if (e.key === "Escape") setEditingCell(null);
+                        if (e.key === "Escape") cancelEdit();
                       }}
                       onBlur={saveEdit}
                       className="h-7 text-xs"
                       autoFocus
                     />
                   ) : (
-                    <span className="text-xs">{display || <span className="text-muted-foreground">—</span>}</span>
+                    <span className="text-xs">
+                      {display || (
+                        <span className="text-muted-foreground">&mdash;</span>
+                      )}
+                    </span>
                   )}
                 </TableCell>
               );
@@ -297,14 +324,18 @@ export function LeadTable({
                       onChange={(e) => setEditValue(e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter") saveEdit();
-                        if (e.key === "Escape") setEditingCell(null);
+                        if (e.key === "Escape") cancelEdit();
                       }}
                       onBlur={saveEdit}
                       className="h-7 text-xs"
                       autoFocus
                     />
                   ) : (
-                    <span className="text-xs">{val || <span className="text-muted-foreground">—</span>}</span>
+                    <span className="text-xs">
+                      {val || (
+                        <span className="text-muted-foreground">&mdash;</span>
+                      )}
+                    </span>
                   )}
                 </TableCell>
               );

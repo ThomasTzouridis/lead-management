@@ -27,6 +27,19 @@ CREATE TRIGGER leads_normalize BEFORE INSERT OR UPDATE ON leads FOR EACH ROW EXE
 CREATE OR REPLACE FUNCTION update_updated_at() RETURNS TRIGGER AS $$ BEGIN NEW.updated_at = now(); RETURN NEW; END; $$ LANGUAGE plpgsql;
 CREATE TRIGGER leads_updated_at BEFORE UPDATE ON leads FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
+-- 7b. RPC: Bulk merge a single key into custom_fields JSONB (used by bulk fill)
+CREATE OR REPLACE FUNCTION bulk_merge_custom_field(
+  lead_ids UUID[],
+  field_name TEXT,
+  field_value TEXT
+) RETURNS void AS $$
+BEGIN
+  UPDATE leads
+  SET custom_fields = COALESCE(custom_fields, '{}'::jsonb) || jsonb_build_object(field_name, field_value)
+  WHERE id = ANY(lead_ids);
+END;
+$$ LANGUAGE plpgsql;
+
 -- 7. RLS — allow anon full access (no auth in V0)
 ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
 ALTER TABLE leads ENABLE ROW LEVEL SECURITY;

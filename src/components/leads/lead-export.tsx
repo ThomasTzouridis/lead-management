@@ -45,6 +45,7 @@ export function LeadExport({ clientId, search, filters, sortColumn, sortDir }: P
 
       if (leads.length === 0) {
         toast.error("No leads to export");
+        setExporting(false);
         return;
       }
 
@@ -56,17 +57,12 @@ export function LeadExport({ clientId, search, filters, sortColumn, sortDir }: P
         })
       );
 
-      // Collect custom field keys
+      // Collect custom field keys that have at least one non-empty value (single pass)
       const customKeys = new Set<string>();
       for (const lead of leads) {
         if (lead.custom_fields) {
-          for (const key of Object.keys(lead.custom_fields)) {
-            if (
-              leads.some((l) => {
-                const v = l.custom_fields?.[key];
-                return v != null && v !== "";
-              })
-            ) {
+          for (const [key, val] of Object.entries(lead.custom_fields)) {
+            if (val != null && val !== "") {
               customKeys.add(key);
             }
           }

@@ -65,7 +65,7 @@ export default function HomePage() {
     <div className="min-h-screen bg-background">
       <div className="max-w-4xl mx-auto p-8">
         <div className="mb-8">
-          <h1 className="text-2xl font-bold">Lead Management</h1>
+          <h1 className="text-2xl font-bold">Upload CSV</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Step {step} of 5
           </p>
