@@ -123,7 +123,7 @@ export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
           const currentLabel = currentTarget === "skip"
             ? undefined
             : currentTarget.startsWith(CUSTOM_FIELD_PREFIX)
-              ? customFields.find((f) => f.value === currentTarget)?.label + " (custom)"
+              ? customFields.find((f) => f.value === currentTarget)?.label
               : undefined;
 
           return (
@@ -196,7 +196,7 @@ export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
                               value={f.value}
                               disabled={usedTargets.has(f.value) && currentTarget !== f.value}
                             >
-                              {f.label} (custom)
+                              {f.label}
                             </SelectItem>
                           ))}
                         </>
