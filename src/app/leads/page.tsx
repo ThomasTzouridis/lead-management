@@ -92,6 +92,7 @@ export default function LeadsPage() {
       clientId: clientId !== "all" ? clientId : undefined,
       search: search || undefined,
       filters: filters.length > 0 ? filters : undefined,
+      customFieldKeys: dbCustomKeys.length > 0 ? dbCustomKeys : undefined,
       sortColumn: sortColumn.startsWith("cf:") ? undefined : sortColumn,
       sortDir,
       page,
@@ -112,7 +113,7 @@ export default function LeadsPage() {
     return () => {
       cancelled = true;
     };
-  }, [clientId, search, filters, sortColumn, sortDir, page, refetchKey]);
+  }, [clientId, search, filters, sortColumn, sortDir, page, refetchKey, dbCustomKeys]);
 
   // ── Reset page on filter/search/sort change ─────────────────────────
   const handleClientChange = useCallback((id: string) => {

@@ -43,6 +43,7 @@ export type FetchLeadsParams = {
   clientId?: string;
   search?: string;
   filters?: ColumnFilter[];
+  customFieldKeys?: string[];
   sortColumn?: string;
   sortDir?: "asc" | "desc";
   page: number;
@@ -73,7 +74,7 @@ export const LEAD_COLUMNS = TARGET_FIELDS.map((f) => ({
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function applyFilters<T extends { eq: any; or: any; ilike: any; filter: any }>(
   query: T,
-  params: Pick<FetchLeadsParams, "clientId" | "search" | "filters">
+  params: Pick<FetchLeadsParams, "clientId" | "search" | "filters" | "customFieldKeys">
 ): T {
   let q = query;
 
@@ -85,10 +86,12 @@ function applyFilters<T extends { eq: any; or: any; ilike: any; filter: any }>(
     // Escape LIKE wildcards in search term
     const escaped = params.search.replace(/[%_\\]/g, "\\$&");
     const term = `%${escaped}%`;
-    // Search fixed columns + custom_fields as text (catches all custom field values)
+    // Search fixed columns + each custom field key individually
     const orClauses = [
       ...SEARCHABLE_COLUMNS.map((c) => `${c}.ilike.${term}`),
-      `custom_fields::text.ilike.${term}`,
+      ...(params.customFieldKeys || []).map(
+        (k) => `custom_fields->>${k}.ilike.${term}`
+      ),
     ].join(",");
     q = q.or(orClauses);
   }
@@ -144,7 +147,7 @@ export async function fetchLeads(params: FetchLeadsParams) {
 
 /** Fetch ALL lead IDs matching filters (for "select all filtered") */
 export async function fetchAllFilteredLeadIds(
-  params: Pick<FetchLeadsParams, "clientId" | "search" | "filters">
+  params: Pick<FetchLeadsParams, "clientId" | "search" | "filters" | "customFieldKeys">
 ): Promise<string[]> {
   const ids: string[] = [];
   const batchSize = 1000;
@@ -170,7 +173,7 @@ export async function fetchAllFilteredLeadIds(
 
 /** Fetch ALL leads matching filters (for CSV export) */
 export async function fetchAllFilteredLeads(
-  params: Pick<FetchLeadsParams, "clientId" | "search" | "filters" | "sortColumn" | "sortDir">
+  params: Pick<FetchLeadsParams, "clientId" | "search" | "filters" | "customFieldKeys" | "sortColumn" | "sortDir">
 ): Promise<Lead[]> {
   const leads: Lead[] = [];
   const batchSize = 1000;
