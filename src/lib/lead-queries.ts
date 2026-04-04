@@ -85,9 +85,11 @@ function applyFilters<T extends { eq: any; or: any; ilike: any; filter: any }>(
     // Escape LIKE wildcards in search term
     const escaped = params.search.replace(/[%_\\]/g, "\\$&");
     const term = `%${escaped}%`;
-    const orClauses = SEARCHABLE_COLUMNS.map((c) => `${c}.ilike.${term}`).join(
-      ","
-    );
+    // Search fixed columns + custom_fields as text (catches all custom field values)
+    const orClauses = [
+      ...SEARCHABLE_COLUMNS.map((c) => `${c}.ilike.${term}`),
+      `custom_fields::text.ilike.${term}`,
+    ].join(",");
     q = q.or(orClauses);
   }
 
