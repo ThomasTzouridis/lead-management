@@ -13,7 +13,7 @@ type Props = {
   onBack: () => void;
 };
 
-const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
+const MAX_FILE_SIZE = 200 * 1024 * 1024; // 200 MB
 
 export function StepUpload({ state, onUpdate, onNext, onBack }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -28,7 +28,7 @@ export function StepUpload({ state, onUpdate, onNext, onBack }: Props) {
     }
 
     if (file.size > MAX_FILE_SIZE) {
-      toast.error("File too large. Maximum 50 MB.");
+      toast.error("File too large. Maximum 200 MB.");
       return;
     }
 
