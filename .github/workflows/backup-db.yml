@@ -1,0 +1,46 @@
+name: Backup Database
+
+on:
+  schedule:
+    - cron: "0 3 * * *" # Daily at 03:00 UTC (05:00 Berlin)
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Export leads to JSON
+        run: |
+          mkdir -p backup
+          OFFSET=0
+          PAGE=0
+          while true; do
+            RESPONSE=$(curl -s \
+              "${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}/rest/v1/leads?select=*&order=created_at.asc&offset=${OFFSET}&limit=1000" \
+              -H "apikey: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}" \
+              -H "Authorization: Bearer ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}")
+            COUNT=$(echo "$RESPONSE" | jq length)
+            if [ "$COUNT" -eq 0 ]; then
+              break
+            fi
+            echo "$RESPONSE" > "backup/leads_page_${PAGE}.json"
+            OFFSET=$((OFFSET + 1000))
+            PAGE=$((PAGE + 1))
+          done
+          echo "Exported $((PAGE)) pages of leads"
+
+      - name: Export clients to JSON
+        run: |
+          curl -s \
+            "${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}/rest/v1/clients?select=*" \
+            -H "apikey: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}" \
+            > backup/clients.json
+          echo "Exported clients"
+
+      - name: Upload backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ github.run_id }}
+          path: backup/
+          retention-days: 30
