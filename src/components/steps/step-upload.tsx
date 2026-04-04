@@ -35,12 +35,16 @@ export function StepUpload({ state, onUpdate, onNext, onBack }: Props) {
     setParsing(true);
     const allRows: Record<string, string>[] = [];
     let headers: string[] = [];
+    let malformedCount = 0;
 
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
       step: (result) => {
-        if (result.errors.length > 0) return; // skip malformed rows
+        if (result.errors.length > 0) {
+          malformedCount++;
+          return;
+        }
         if (headers.length === 0 && result.meta.fields) {
           headers = result.meta.fields;
         }
@@ -69,7 +73,11 @@ export function StepUpload({ state, onUpdate, onNext, onBack }: Props) {
           mapping: {}, // reset mapping when new file is uploaded
         });
 
-        toast.success(`Parsed ${allRows.length.toLocaleString()} rows`);
+        if (malformedCount > 0) {
+          toast.warning(`Parsed ${allRows.length.toLocaleString()} rows — ${malformedCount.toLocaleString()} malformed rows skipped`);
+        } else {
+          toast.success(`Parsed ${allRows.length.toLocaleString()} rows`);
+        }
       },
       error: (err) => {
         setParsing(false);
