@@ -101,7 +101,7 @@ function applyFilters<T extends { eq: any; or: any; ilike: any; filter: any }>(
         // Sanitize key: only allow alphanumeric, spaces, hyphens, underscores
         const key = f.column.slice(3).replace(/[^a-zA-Z0-9 _-]/g, "");
         q = q.filter(
-          `custom_fields->>'${key}'`,
+          `custom_fields->>${key}`,
           "ilike",
           `%${escapedVal}%`
         );
