@@ -16,3 +16,5 @@ export const TARGET_FIELDS = [
 ] as const;
 
 export type TargetField = (typeof TARGET_FIELDS)[number]["value"];
+
+export const CUSTOM_FIELD_PREFIX = "custom:";

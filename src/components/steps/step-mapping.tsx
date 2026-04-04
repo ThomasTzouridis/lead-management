@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { TARGET_FIELDS } from "@/lib/constants";
+import { TARGET_FIELDS, CUSTOM_FIELD_PREFIX } from "@/lib/constants";
 import { toast } from "sonner";
 import type { UploadState } from "@/app/page";
 
@@ -22,6 +22,9 @@ type Props = {
 
 export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
   const mapping = state.mapping;
+  const customFields = state.customFields;
+  const [creatingFor, setCreatingFor] = useState<string | null>(null);
+  const [newFieldName, setNewFieldName] = useState("");
 
   // Which target fields are already used
   const usedTargets = useMemo(
@@ -30,6 +33,12 @@ export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
   );
 
   function setMapping(csvCol: string, target: string) {
+    if (target === "__create_custom__") {
+      setCreatingFor(csvCol);
+      setNewFieldName("");
+      return;
+    }
+
     const next = { ...mapping };
     if (target === "skip") {
       delete next[csvCol];
@@ -37,6 +46,37 @@ export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
       next[csvCol] = target;
     }
     onUpdate({ mapping: next });
+  }
+
+  function confirmCustomField() {
+    const name = newFieldName.trim();
+    if (!name) {
+      toast.error("Field name cannot be empty");
+      return;
+    }
+
+    const value = CUSTOM_FIELD_PREFIX + name;
+
+    // Check if this custom field already exists
+    const exists = customFields.some((f) => f.value === value);
+    if (!exists) {
+      onUpdate({ customFields: [...customFields, { value, label: name }] });
+    }
+
+    // Set the mapping
+    if (creatingFor) {
+      const next = { ...mapping };
+      next[creatingFor] = value;
+      onUpdate({ mapping: next, customFields: exists ? customFields : [...customFields, { value, label: name }] });
+    }
+
+    setCreatingFor(null);
+    setNewFieldName("");
+  }
+
+  function cancelCustomField() {
+    setCreatingFor(null);
+    setNewFieldName("");
   }
 
   function handleNext() {
@@ -70,6 +110,7 @@ export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
       <div className="space-y-2 max-h-[500px] overflow-auto">
         {state.headers.map((csvCol) => {
           const currentTarget = mapping[csvCol] || "skip";
+          const isCreating = creatingFor === csvCol;
 
           // Sample values for this column (first 3 non-empty)
           const samples = state.previewRows
@@ -77,6 +118,13 @@ export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
             .filter((v) => v != null && v !== "")
             .slice(0, 3)
             .map((v) => String(v).length > 40 ? String(v).slice(0, 40) + "..." : String(v));
+
+          // Get display label for current target
+          const currentLabel = currentTarget === "skip"
+            ? undefined
+            : currentTarget.startsWith(CUSTOM_FIELD_PREFIX)
+              ? customFields.find((f) => f.value === currentTarget)?.label + " (custom)"
+              : undefined;
 
           return (
             <div
@@ -96,30 +144,69 @@ export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
               {/* Arrow */}
               <span className="text-muted-foreground shrink-0">&rarr;</span>
 
-              {/* Target field dropdown */}
-              <div className="w-[200px] shrink-0">
-                <Select
-                  value={currentTarget}
-                  onValueChange={(v) => v && setMapping(csvCol, v)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="skip">
-                      <span className="text-muted-foreground">Skip this column</span>
-                    </SelectItem>
-                    {TARGET_FIELDS.map((f) => (
-                      <SelectItem
-                        key={f.value}
-                        value={f.value}
-                        disabled={usedTargets.has(f.value) && currentTarget !== f.value}
-                      >
-                        {f.label}
+              {/* Target field dropdown or custom field input */}
+              <div className="w-[240px] shrink-0">
+                {isCreating ? (
+                  <div className="flex gap-1">
+                    <input
+                      type="text"
+                      value={newFieldName}
+                      onChange={(e) => setNewFieldName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") confirmCustomField();
+                        if (e.key === "Escape") cancelCustomField();
+                      }}
+                      placeholder="Field name..."
+                      autoFocus
+                      className="flex-1 rounded-md border border-input bg-transparent px-2 py-1.5 text-sm"
+                    />
+                    <Button size="sm" onClick={confirmCustomField}>
+                      OK
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={cancelCustomField}>
+                      X
+                    </Button>
+                  </div>
+                ) : (
+                  <Select
+                    value={currentTarget}
+                    onValueChange={(v) => v && setMapping(csvCol, v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue>{currentLabel}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="skip">
+                        <span className="text-muted-foreground">Skip this column</span>
                       </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                      {TARGET_FIELDS.map((f) => (
+                        <SelectItem
+                          key={f.value}
+                          value={f.value}
+                          disabled={usedTargets.has(f.value) && currentTarget !== f.value}
+                        >
+                          {f.label}
+                        </SelectItem>
+                      ))}
+                      {customFields.length > 0 && (
+                        <>
+                          {customFields.map((f) => (
+                            <SelectItem
+                              key={f.value}
+                              value={f.value}
+                              disabled={usedTargets.has(f.value) && currentTarget !== f.value}
+                            >
+                              {f.label} (custom)
+                            </SelectItem>
+                          ))}
+                        </>
+                      )}
+                      <SelectItem value="__create_custom__">
+                        <span className="text-primary font-medium">+ Create custom field</span>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
             </div>
           );

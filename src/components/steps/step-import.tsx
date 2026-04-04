@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { CUSTOM_FIELD_PREFIX } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import type { UploadState } from "@/app/page";
 
@@ -81,18 +82,26 @@ export function StepImport({ state, onUpdate, onNext }: Props) {
         };
 
         // Map columns
+        const customData: Record<string, string> = {};
+
         for (const [targetField, csvCol] of Object.entries(reverseMap)) {
           const val = String(row[csvCol] ?? "").trim();
-          if (val) {
-            // Normalize email and LinkedIn for consistent dedup
-            if (targetField === "email") {
-              lead[targetField] = val.toLowerCase();
-            } else if (targetField === "linkedin_url") {
-              lead[targetField] = val.toLowerCase();
-            } else {
-              lead[targetField] = val;
-            }
+          if (!val) continue;
+
+          if (targetField.startsWith(CUSTOM_FIELD_PREFIX)) {
+            const fieldName = targetField.slice(CUSTOM_FIELD_PREFIX.length);
+            customData[fieldName] = val;
+          } else if (targetField === "email") {
+            lead[targetField] = val.toLowerCase();
+          } else if (targetField === "linkedin_url") {
+            lead[targetField] = val.toLowerCase();
+          } else {
+            lead[targetField] = val;
           }
+        }
+
+        if (Object.keys(customData).length > 0) {
+          lead.custom_fields = customData;
         }
 
         // Check: must have email or LinkedIn

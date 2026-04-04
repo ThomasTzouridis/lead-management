@@ -15,6 +15,7 @@ export type UploadState = {
   previewRows: Record<string, string>[];
   allRows: Record<string, string>[];
   mapping: Record<string, string>; // csvColumn → targetField
+  customFields: { value: string; label: string }[]; // user-created fields for this session
   results: {
     total: number;
     imported: number;
@@ -34,6 +35,7 @@ function createInitialState(): UploadState {
     previewRows: [],
     allRows: [],
     mapping: {},
+    customFields: [],
     results: null,
   };
 }

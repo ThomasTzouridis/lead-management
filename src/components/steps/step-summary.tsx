@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { CUSTOM_FIELD_PREFIX } from "@/lib/constants";
 import type { UploadState } from "@/app/page";
 
 type Props = {
@@ -17,8 +18,16 @@ export function StepSummary({ state, onReset }: Props) {
     if (!r || r.newLeads.length === 0) return;
 
     // Get unique target fields from mapping
-    const fields = [...new Set(Object.values(state.mapping).filter((v) => v !== "skip"))];
-    if (fields.length === 0) return;
+    const allFields = [...new Set(Object.values(state.mapping).filter((v) => v !== "skip"))];
+    if (allFields.length === 0) return;
+
+    // Split into regular fields and custom fields
+    const regularFields = allFields.filter((f) => !f.startsWith(CUSTOM_FIELD_PREFIX));
+    const customFieldKeys = allFields
+      .filter((f) => f.startsWith(CUSTOM_FIELD_PREFIX))
+      .map((f) => f.slice(CUSTOM_FIELD_PREFIX.length));
+
+    const headerNames = [...regularFields, ...customFieldKeys];
 
     function escapeCSV(val: unknown): string {
       const str = val == null ? "" : String(val);
@@ -27,9 +36,13 @@ export function StepSummary({ state, onReset }: Props) {
         : str;
     }
 
-    const csvRows = [fields.map(escapeCSV).join(",")];
+    const csvRows = [headerNames.map(escapeCSV).join(",")];
     for (const lead of r.newLeads) {
-      const row = fields.map((f) => escapeCSV(lead[f]));
+      const customObj = (lead.custom_fields || {}) as Record<string, string>;
+      const row = [
+        ...regularFields.map((f) => escapeCSV(lead[f])),
+        ...customFieldKeys.map((k) => escapeCSV(customObj[k])),
+      ];
       csvRows.push(row.join(","));
     }
 
