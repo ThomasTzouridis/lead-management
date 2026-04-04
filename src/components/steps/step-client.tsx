@@ -29,30 +29,41 @@ export function StepClient({ state, onUpdate, onNext }: Props) {
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
-    loadClients();
+    let cancelled = false;
+    async function load() {
+      const { data, error } = await supabase
+        .from("clients")
+        .select("id, name, slug")
+        .order("name");
+      if (cancelled) return;
+      if (error) {
+        toast.error("Failed to load clients");
+      }
+      setClients(data || []);
+      setLoading(false);
+    }
+    load();
+    return () => { cancelled = true; };
   }, []);
 
-  async function loadClients() {
-    const { data, error } = await supabase
-      .from("clients")
-      .select("id, name, slug")
-      .order("name");
-    if (error) {
-      toast.error("Failed to load clients");
-    }
-    setClients(data || []);
-    setLoading(false);
-  }
-
   async function createClient() {
+    if (creating) return; // prevent double-submit
     if (!newName.trim()) return;
     setCreating(true);
 
     const slug = newName
       .trim()
       .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "") // strip diacritics (ü→u, é→e)
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-|-$/g, "");
+
+    if (!slug) {
+      toast.error("Client name must contain at least one letter or number");
+      setCreating(false);
+      return;
+    }
 
     const { data, error } = await supabase
       .from("clients")
@@ -61,7 +72,11 @@ export function StepClient({ state, onUpdate, onNext }: Props) {
       .single();
 
     if (error) {
-      toast.error(error.message);
+      if (error.code === "23505") {
+        toast.error("A client with this name already exists");
+      } else {
+        toast.error(error.message);
+      }
       setCreating(false);
       return;
     }
@@ -70,7 +85,13 @@ export function StepClient({ state, onUpdate, onNext }: Props) {
     onUpdate({ clientId: data.id, clientName: data.name });
     setNewName("");
     setCreating(false);
-    await loadClients();
+
+    // Reload list
+    const { data: refreshed } = await supabase
+      .from("clients")
+      .select("id, name, slug")
+      .order("name");
+    if (refreshed) setClients(refreshed);
   }
 
   function handleSelect(clientId: string) {

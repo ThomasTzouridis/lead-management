@@ -16,6 +16,12 @@ CREATE UNIQUE INDEX idx_leads_dedup_linkedin ON leads(client_id, linkedin_url) W
 
 -- 5. Performance indexes
 CREATE INDEX idx_leads_client ON leads(client_id);
+CREATE INDEX idx_batches_client ON upload_batches(client_id);
+CREATE INDEX idx_leads_batch ON leads(upload_batch_id);
+
+-- 5b. Normalize email + LinkedIn on insert/update (lowercase, trimmed)
+CREATE OR REPLACE FUNCTION normalize_lead_contact() RETURNS TRIGGER AS $$ BEGIN NEW.email = lower(trim(NEW.email)); NEW.linkedin_url = lower(trim(NEW.linkedin_url)); RETURN NEW; END; $$ LANGUAGE plpgsql;
+CREATE TRIGGER leads_normalize BEFORE INSERT OR UPDATE ON leads FOR EACH ROW EXECUTE FUNCTION normalize_lead_contact();
 
 -- 6. Auto-update updated_at
 CREATE OR REPLACE FUNCTION update_updated_at() RETURNS TRIGGER AS $$ BEGIN NEW.updated_at = now(); RETURN NEW; END; $$ LANGUAGE plpgsql;

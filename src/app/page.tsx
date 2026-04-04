@@ -25,27 +25,37 @@ export type UploadState = {
   } | null;
 };
 
-const INITIAL_STATE: UploadState = {
-  clientId: "",
-  clientName: "",
-  file: null,
-  headers: [],
-  previewRows: [],
-  allRows: [],
-  mapping: {},
-  results: null,
-};
+function createInitialState(): UploadState {
+  return {
+    clientId: "",
+    clientName: "",
+    file: null,
+    headers: [],
+    previewRows: [],
+    allRows: [],
+    mapping: {},
+    results: null,
+  };
+}
 
 export default function HomePage() {
   const [step, setStep] = useState(1);
-  const [state, setState] = useState<UploadState>(INITIAL_STATE);
+  const [state, setState] = useState<UploadState>(createInitialState);
 
   function updateState(partial: Partial<UploadState>) {
     setState((prev) => ({ ...prev, ...partial }));
   }
 
+  function goToStep(s: number) {
+    // Free memory when advancing past import
+    if (s === 5) {
+      setState((prev) => ({ ...prev, allRows: [], previewRows: [] }));
+    }
+    setStep(s);
+  }
+
   function reset() {
-    setState(INITIAL_STATE);
+    setState(createInitialState());
     setStep(1);
   }
 
@@ -74,33 +84,33 @@ export default function HomePage() {
           <StepClient
             state={state}
             onUpdate={updateState}
-            onNext={() => setStep(2)}
+            onNext={() => goToStep(2)}
           />
         )}
         {step === 2 && (
           <StepUpload
             state={state}
             onUpdate={updateState}
-            onNext={() => setStep(3)}
-            onBack={() => setStep(1)}
+            onNext={() => goToStep(3)}
+            onBack={() => goToStep(1)}
           />
         )}
         {step === 3 && (
           <StepMapping
             state={state}
             onUpdate={updateState}
-            onNext={() => setStep(4)}
-            onBack={() => setStep(2)}
+            onNext={() => goToStep(4)}
+            onBack={() => goToStep(2)}
           />
         )}
         {step === 4 && (
           <StepImport
             state={state}
             onUpdate={updateState}
-            onNext={() => setStep(5)}
+            onNext={() => goToStep(5)}
           />
         )}
-        {step === 5 && (
+        {step === 5 && state.results && (
           <StepSummary state={state} onReset={reset} />
         )}
       </div>

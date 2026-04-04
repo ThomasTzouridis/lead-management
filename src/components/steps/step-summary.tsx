@@ -16,19 +16,20 @@ export function StepSummary({ state, onReset }: Props) {
   function downloadNewOnly() {
     if (!r || r.newLeads.length === 0) return;
 
-    // Get all keys from the mapping (target fields that were used)
-    const fields = Object.values(state.mapping).filter((v) => v !== "skip");
+    // Get unique target fields from mapping
+    const fields = [...new Set(Object.values(state.mapping).filter((v) => v !== "skip"))];
     if (fields.length === 0) return;
 
-    const csvRows = [fields.join(",")];
+    function escapeCSV(val: unknown): string {
+      const str = val == null ? "" : String(val);
+      return str.includes(",") || str.includes('"') || str.includes("\n") || str.includes("\r")
+        ? `"${str.replace(/"/g, '""')}"`
+        : str;
+    }
+
+    const csvRows = [fields.map(escapeCSV).join(",")];
     for (const lead of r.newLeads) {
-      const row = fields.map((f) => {
-        const val = lead[f];
-        const str = val == null ? "" : String(val);
-        return str.includes(",") || str.includes('"') || str.includes("\n")
-          ? `"${str.replace(/"/g, '""')}"`
-          : str;
-      });
+      const row = fields.map((f) => escapeCSV(lead[f]));
       csvRows.push(row.join(","));
     }
 
@@ -36,9 +37,10 @@ export function StepSummary({ state, onReset }: Props) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `new-leads-${state.file?.name || "export.csv"}`;
+    const baseName = (state.file?.name || "export.csv").replace(/\.[^.]+$/, "");
+    a.download = `new-leads-${baseName}.csv`;
     a.click();
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
   }
 
   return (

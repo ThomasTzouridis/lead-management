@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -23,7 +24,10 @@ export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
   const mapping = state.mapping;
 
   // Which target fields are already used
-  const usedTargets = new Set(Object.values(mapping).filter((v) => v !== "skip"));
+  const usedTargets = useMemo(
+    () => new Set(Object.values(mapping).filter((v) => v !== "skip")),
+    [mapping]
+  );
 
   function setMapping(csvCol: string, target: string) {
     const next = { ...mapping };
@@ -70,8 +74,9 @@ export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
           // Sample values for this column (first 3 non-empty)
           const samples = state.previewRows
             .map((r) => r[csvCol])
-            .filter(Boolean)
-            .slice(0, 3);
+            .filter((v) => v != null && v !== "")
+            .slice(0, 3)
+            .map((v) => String(v).length > 40 ? String(v).slice(0, 40) + "..." : String(v));
 
           return (
             <div
