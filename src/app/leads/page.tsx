@@ -10,6 +10,7 @@ import { LeadBulkFill } from "@/components/leads/lead-bulk-fill";
 import {
   fetchLeads,
   fetchClients,
+  fetchCustomFieldKeys,
   fetchAllFilteredLeadIds,
   type Lead,
   type Client,
@@ -40,6 +41,9 @@ export default function LeadsPage() {
   // Columns added via "Add Column" button (persist until page reload)
   const [extraColumns, setExtraColumns] = useState<string[]>([]);
 
+  // All custom field keys from the database (persists across reloads)
+  const [dbCustomKeys, setDbCustomKeys] = useState<string[]>([]);
+
   // ── Derived ──────────────────────────────────────────────────────────
   const customFieldKeys = useMemo(() => {
     const keys = new Set<string>();
@@ -50,19 +54,34 @@ export default function LeadsPage() {
         }
       }
     }
+    // Include columns from database (all custom fields that exist anywhere)
+    for (const col of dbCustomKeys) {
+      keys.add(col);
+    }
     // Include columns added via UI even if no data yet
     for (const col of extraColumns) {
       keys.add(col);
     }
     return Array.from(keys);
-  }, [leads, extraColumns]);
+  }, [leads, dbCustomKeys, extraColumns]);
 
-  // ── Load clients once ───────────────────────────────────────────────
+  // ── Load clients + custom field keys once ────────────────────────────
   useEffect(() => {
     fetchClients()
       .then(setClients)
       .catch((err) => toast.error(`Failed to load clients: ${err.message}`));
+    fetchCustomFieldKeys()
+      .then(setDbCustomKeys)
+      .catch(() => {}); // Silently fail — keys will still be derived from current page
   }, []);
+
+  // Refresh custom field keys after any data mutation (bulk fill, inline edit, etc.)
+  useEffect(() => {
+    if (refetchKey === 0) return; // Skip initial mount
+    fetchCustomFieldKeys()
+      .then(setDbCustomKeys)
+      .catch(() => {});
+  }, [refetchKey]);
 
   // ── Fetch leads on any state change ─────────────────────────────────
   useEffect(() => {
@@ -237,6 +256,7 @@ export default function LeadsPage() {
           onSort={handleSort}
           onLeadUpdated={refetch}
           extraColumns={extraColumns}
+          allCustomKeys={customFieldKeys}
           onAddColumn={(name) => setExtraColumns((prev) => [...prev, name])}
         />
       )}

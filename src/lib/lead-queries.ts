@@ -200,6 +200,21 @@ export async function fetchAllFilteredLeads(
   return leads;
 }
 
+/** Fetch all distinct custom field keys from the database */
+export async function fetchCustomFieldKeys(): Promise<string[]> {
+  const { data, error } = await supabase.rpc("get_custom_field_keys");
+
+  if (error) {
+    // RPC not available — fall back to scanning current leads
+    if (error.code === "42883" || error.message.includes("does not exist")) {
+      return [];
+    }
+    throw new Error(error.message);
+  }
+
+  return (data || []).map((row: { key: string }) => row.key);
+}
+
 /** Fetch all clients */
 export async function fetchClients(): Promise<Client[]> {
   const { data, error } = await supabase

@@ -40,6 +40,18 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- 7c. RPC: Get all distinct custom field keys across all leads
+CREATE OR REPLACE FUNCTION get_custom_field_keys()
+RETURNS TABLE(key TEXT) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT DISTINCT jsonb_object_keys(custom_fields) AS key
+  FROM leads
+  WHERE custom_fields IS NOT NULL AND custom_fields != '{}'::jsonb
+  ORDER BY key;
+END;
+$$ LANGUAGE plpgsql;
+
 -- 7. RLS — allow anon full access (no auth in V0)
 ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
 ALTER TABLE leads ENABLE ROW LEVEL SECURITY;

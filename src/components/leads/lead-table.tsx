@@ -26,6 +26,7 @@ type Props = {
   onSort: (column: string) => void;
   onLeadUpdated: () => void;
   extraColumns: string[];
+  allCustomKeys: string[];
   onAddColumn: (name: string) => void;
 };
 
@@ -38,6 +39,7 @@ export function LeadTable({
   onSort,
   onLeadUpdated,
   extraColumns,
+  allCustomKeys,
   onAddColumn,
 }: Props) {
   const [addingColumn, setAddingColumn] = useState(false);
@@ -57,7 +59,7 @@ export function LeadTable({
     })
   );
 
-  // Collect all custom field keys across current page + extra columns
+  // All known custom field keys: from current page + database + UI-added
   const customFieldKeys = new Set<string>();
   for (const lead of leads) {
     if (lead.custom_fields) {
@@ -66,20 +68,17 @@ export function LeadTable({
       }
     }
   }
+  for (const col of allCustomKeys) {
+    customFieldKeys.add(col);
+  }
   for (const col of extraColumns) {
     customFieldKeys.add(col);
   }
 
-  // Show custom columns: those with data OR those explicitly added
-  const visibleCustomCols = Array.from(customFieldKeys).filter((key) => {
-    // Always show columns that were explicitly added
-    if (extraColumns.includes(key)) return true;
-    // Otherwise only show if at least one lead has data
-    return leads.some((lead) => {
-      const val = lead.custom_fields?.[key];
-      return val != null && val !== "";
-    });
-  });
+  // Show custom columns that exist in the database or were just added
+  // (auto-hide only applies to regular columns — custom columns always show
+  //  because they were intentionally created)
+  const visibleCustomCols = Array.from(customFieldKeys);
 
   // ── Selection ──────────────────────────────────────────────────────
   const allOnPageSelected =
