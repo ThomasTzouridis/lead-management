@@ -47,6 +47,8 @@ export function LeadFilters({
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [addingFilter, setAddingFilter] = useState<string | null>(null);
   const [filterValue, setFilterValue] = useState("");
+  const [editingFilterId, setEditingFilterId] = useState<string | null>(null);
+  const [editFilterValue, setEditFilterValue] = useState("");
 
   // Debounce search
   useEffect(() => {
@@ -76,6 +78,22 @@ export function LeadFilters({
 
   function removeFilter(id: string) {
     onFiltersChange(filters.filter((f) => f.id !== id));
+  }
+
+  function startEditFilter(f: ColumnFilter) {
+    setEditingFilterId(f.id);
+    setEditFilterValue(f.value);
+  }
+
+  function confirmEditFilter() {
+    if (!editingFilterId || !editFilterValue.trim()) return;
+    onFiltersChange(
+      filters.map((f) =>
+        f.id === editingFilterId ? { ...f, value: editFilterValue.trim() } : f
+      )
+    );
+    setEditingFilterId(null);
+    setEditFilterValue("");
   }
 
   // Get display label for a column
@@ -176,9 +194,30 @@ export function LeadFilters({
         <div className="flex items-center gap-2 flex-wrap">
           {filters.map((f) => (
             <Badge key={f.id} variant="secondary" className="gap-1 pr-1">
-              <span>
-                {colLabel(f.column)}: {f.value}
-              </span>
+              {editingFilterId === f.id ? (
+                <div className="flex items-center gap-1">
+                  <span className="text-xs">{colLabel(f.column)}:</span>
+                  <input
+                    value={editFilterValue}
+                    onChange={(e) => setEditFilterValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") confirmEditFilter();
+                      if (e.key === "Escape") setEditingFilterId(null);
+                    }}
+                    onBlur={confirmEditFilter}
+                    className="w-20 bg-transparent text-xs outline-none border-b border-foreground/30"
+                    autoFocus
+                  />
+                </div>
+              ) : (
+                <span
+                  className="cursor-pointer"
+                  onClick={() => startEditFilter(f)}
+                  title="Click to edit"
+                >
+                  {colLabel(f.column)}: {f.value}
+                </span>
+              )}
               <button
                 onClick={() => removeFilter(f.id)}
                 className="ml-0.5 rounded-full p-0.5 hover:bg-foreground/10 transition-colors"
