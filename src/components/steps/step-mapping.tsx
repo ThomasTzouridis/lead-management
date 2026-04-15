@@ -185,7 +185,7 @@ export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
           return (
             <div
               key={csvCol}
-              className={`flex items-center gap-2 p-3 rounded-lg border transition-colors ${
+              className={`flex items-center gap-4 p-3 rounded-lg border transition-colors ${
                 isReviewed
                   ? "bg-green-950/40 border-green-700/60"
                   : "bg-card"
@@ -274,7 +274,7 @@ export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
                 type="button"
                 onClick={() => toggleReview(csvCol)}
                 aria-label="Mark as reviewed"
-                className={`shrink-0 h-6 w-6 rounded border flex items-center justify-center transition-colors ${
+                className={`shrink-0 -ml-2 h-6 w-6 rounded border flex items-center justify-center transition-colors ${
                   isReviewed
                     ? "bg-green-600 border-green-500 text-white"
                     : "bg-transparent border-input hover:border-green-600"
