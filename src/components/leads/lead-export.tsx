@@ -13,6 +13,7 @@ import { toast } from "sonner";
 
 type Props = {
   clientId?: string;
+  batchId?: string;
   search?: string;
   filters?: ColumnFilter[];
   sortColumn?: string;
@@ -29,7 +30,7 @@ function escapeCSV(val: unknown): string {
     : str;
 }
 
-export function LeadExport({ clientId, search, filters, sortColumn, sortDir }: Props) {
+export function LeadExport({ clientId, batchId, search, filters, sortColumn, sortDir }: Props) {
   const [exporting, setExporting] = useState(false);
 
   async function handleExport() {
@@ -37,6 +38,7 @@ export function LeadExport({ clientId, search, filters, sortColumn, sortDir }: P
     try {
       const leads = await fetchAllFilteredLeads({
         clientId: clientId && clientId !== "all" ? clientId : undefined,
+        batchId: batchId && batchId !== "all" ? batchId : undefined,
         search,
         filters,
         sortColumn,

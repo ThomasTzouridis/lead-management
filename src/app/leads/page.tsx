@@ -12,9 +12,11 @@ import {
   fetchClients,
   fetchCustomFieldKeys,
   fetchAllFilteredLeadIds,
+  fetchUploadBatches,
   type Lead,
   type Client,
   type ColumnFilter,
+  type UploadBatch,
 } from "@/lib/lead-queries";
 import { toast } from "sonner";
 
@@ -24,6 +26,8 @@ export default function LeadsPage() {
   // ── State ────────────────────────────────────────────────────────────
   const [clients, setClients] = useState<Client[]>([]);
   const [clientId, setClientId] = useState("all");
+  const [batches, setBatches] = useState<UploadBatch[]>([]);
+  const [batchId, setBatchId] = useState("all");
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<ColumnFilter[]>([]);
   const [sortColumn, setSortColumn] = useState("created_at");
@@ -73,7 +77,17 @@ export default function LeadsPage() {
     fetchCustomFieldKeys()
       .then(setDbCustomKeys)
       .catch(() => {}); // Silently fail — keys will still be derived from current page
+    fetchUploadBatches()
+      .then(setBatches)
+      .catch(() => {});
   }, []);
+
+  // Reload batches when client filter changes (shows only that client's uploads)
+  useEffect(() => {
+    fetchUploadBatches(clientId !== "all" ? clientId : undefined)
+      .then(setBatches)
+      .catch(() => {});
+  }, [clientId, refetchKey]);
 
   // Refresh custom field keys after any data mutation (bulk fill, inline edit, etc.)
   useEffect(() => {
@@ -90,6 +104,7 @@ export default function LeadsPage() {
 
     fetchLeads({
       clientId: clientId !== "all" ? clientId : undefined,
+      batchId: batchId !== "all" ? batchId : undefined,
       search: search || undefined,
       filters: filters.length > 0 ? filters : undefined,
       customFieldKeys: dbCustomKeys.length > 0 ? dbCustomKeys : undefined,
@@ -113,11 +128,18 @@ export default function LeadsPage() {
     return () => {
       cancelled = true;
     };
-  }, [clientId, search, filters, sortColumn, sortDir, page, refetchKey, dbCustomKeys]);
+  }, [clientId, batchId, search, filters, sortColumn, sortDir, page, refetchKey, dbCustomKeys]);
 
   // ── Reset page on filter/search/sort change ─────────────────────────
   const handleClientChange = useCallback((id: string) => {
     setClientId(id);
+    setBatchId("all");
+    setPage(0);
+    setSelectedIds(new Set());
+  }, []);
+
+  const handleBatchChange = useCallback((id: string) => {
+    setBatchId(id);
     setPage(0);
     setSelectedIds(new Set());
   }, []);
@@ -162,6 +184,7 @@ export default function LeadsPage() {
     try {
       const ids = await fetchAllFilteredLeadIds({
         clientId: clientId !== "all" ? clientId : undefined,
+        batchId: batchId !== "all" ? batchId : undefined,
         search: search || undefined,
         filters: filters.length > 0 ? filters : undefined,
       });
@@ -191,6 +214,7 @@ export default function LeadsPage() {
         <div className="flex items-center gap-2">
           <LeadExport
             clientId={clientId}
+            batchId={batchId}
             search={search}
             filters={filters}
             sortColumn={sortColumn}
@@ -209,6 +233,9 @@ export default function LeadsPage() {
         filters={filters}
         onFiltersChange={handleFiltersChange}
         customFieldKeys={customFieldKeys}
+        batches={batches}
+        batchId={batchId}
+        onBatchChange={handleBatchChange}
       />
 
       {/* Bulk actions */}

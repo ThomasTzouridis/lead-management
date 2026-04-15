@@ -20,7 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, Plus, X } from "lucide-react";
-import { LEAD_COLUMNS, type Client, type ColumnFilter } from "@/lib/lead-queries";
+import { LEAD_COLUMNS, type Client, type ColumnFilter, type UploadBatch } from "@/lib/lead-queries";
 
 type Props = {
   clients: Client[];
@@ -31,6 +31,9 @@ type Props = {
   filters: ColumnFilter[];
   onFiltersChange: (f: ColumnFilter[]) => void;
   customFieldKeys: string[];
+  batches: UploadBatch[];
+  batchId: string;
+  onBatchChange: (id: string) => void;
 };
 
 export function LeadFilters({
@@ -42,6 +45,9 @@ export function LeadFilters({
   filters,
   onFiltersChange,
   customFieldKeys,
+  batches,
+  batchId,
+  onBatchChange,
 }: Props) {
   const [localSearch, setLocalSearch] = useState(search);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -125,6 +131,30 @@ export function LeadFilters({
               {clients.map((c) => (
                 <SelectItem key={c.id} value={c.id}>
                   {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Upload batch filter */}
+        <div className="w-[220px]">
+          <Select value={batchId} onValueChange={(v) => onBatchChange(v ?? "all")}>
+            <SelectTrigger>
+              <SelectValue>
+                {batchId === "all"
+                  ? "All Uploads"
+                  : (() => {
+                      const b = batches.find((x) => x.id === batchId);
+                      return b ? `#${b.upload_number} — ${b.filename}` : "All Uploads";
+                    })()}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Uploads</SelectItem>
+              {batches.map((b) => (
+                <SelectItem key={b.id} value={b.id}>
+                  #{b.upload_number} — {b.filename}
                 </SelectItem>
               ))}
             </SelectContent>

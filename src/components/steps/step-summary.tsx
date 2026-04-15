@@ -59,7 +59,14 @@ export function StepSummary({ state, onReset }: Props) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold">Import Complete</h2>
+        <h2 className="text-lg font-semibold">
+          Import Complete
+          {r.uploadNumber != null && (
+            <span className="ml-2 text-muted-foreground font-normal">
+              — Upload #{r.uploadNumber}
+            </span>
+          )}
+        </h2>
         <p className="text-sm text-muted-foreground">
           Upload for <strong>{state.clientName}</strong>
         </p>

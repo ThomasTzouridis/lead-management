@@ -39,8 +39,21 @@ export type ColumnFilter = {
   value: string;
 };
 
+export type UploadBatch = {
+  id: string;
+  client_id: string;
+  filename: string;
+  upload_number: number;
+  total_rows: number;
+  imported_rows: number;
+  skipped_no_contact: number;
+  skipped_duplicate: number;
+  created_at: string;
+};
+
 export type FetchLeadsParams = {
   clientId?: string;
+  batchId?: string;
   search?: string;
   filters?: ColumnFilter[];
   customFieldKeys?: string[];
@@ -74,12 +87,16 @@ export const LEAD_COLUMNS = TARGET_FIELDS.map((f) => ({
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function applyFilters<T extends { eq: any; or: any; ilike: any; filter: any }>(
   query: T,
-  params: Pick<FetchLeadsParams, "clientId" | "search" | "filters" | "customFieldKeys">
+  params: Pick<FetchLeadsParams, "clientId" | "batchId" | "search" | "filters" | "customFieldKeys">
 ): T {
   let q = query;
 
   if (params.clientId) {
     q = q.eq("client_id", params.clientId);
+  }
+
+  if (params.batchId) {
+    q = q.eq("upload_batch_id", params.batchId);
   }
 
   if (params.search) {
@@ -147,7 +164,7 @@ export async function fetchLeads(params: FetchLeadsParams) {
 
 /** Fetch ALL lead IDs matching filters (for "select all filtered") */
 export async function fetchAllFilteredLeadIds(
-  params: Pick<FetchLeadsParams, "clientId" | "search" | "filters" | "customFieldKeys">
+  params: Pick<FetchLeadsParams, "clientId" | "batchId" | "search" | "filters" | "customFieldKeys">
 ): Promise<string[]> {
   const ids: string[] = [];
   const batchSize = 1000;
@@ -173,7 +190,7 @@ export async function fetchAllFilteredLeadIds(
 
 /** Fetch ALL leads matching filters (for CSV export) */
 export async function fetchAllFilteredLeads(
-  params: Pick<FetchLeadsParams, "clientId" | "search" | "filters" | "customFieldKeys" | "sortColumn" | "sortDir">
+  params: Pick<FetchLeadsParams, "clientId" | "batchId" | "search" | "filters" | "customFieldKeys" | "sortColumn" | "sortDir">
 ): Promise<Lead[]> {
   const leads: Lead[] = [];
   const batchSize = 1000;
@@ -250,6 +267,20 @@ export async function renameCustomField(
   }
 
   return affected.length;
+}
+
+/** Fetch upload batches (optionally filtered by client), newest first */
+export async function fetchUploadBatches(
+  clientId?: string
+): Promise<UploadBatch[]> {
+  let q = supabase
+    .from("upload_batches")
+    .select("*")
+    .order("upload_number", { ascending: false });
+  if (clientId) q = q.eq("client_id", clientId);
+  const { data, error } = await q;
+  if (error) throw new Error(error.message);
+  return (data || []) as UploadBatch[];
 }
 
 /** Fetch all clients */

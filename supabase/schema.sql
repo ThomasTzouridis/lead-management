@@ -5,7 +5,9 @@
 CREATE TABLE clients (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT NOT NULL, slug TEXT NOT NULL UNIQUE, created_at TIMESTAMPTZ NOT NULL DEFAULT now());
 
 -- 2. Upload batches
-CREATE TABLE upload_batches (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE, filename TEXT NOT NULL, total_rows INT NOT NULL DEFAULT 0, imported_rows INT NOT NULL DEFAULT 0, skipped_no_contact INT NOT NULL DEFAULT 0, skipped_duplicate INT NOT NULL DEFAULT 0, created_at TIMESTAMPTZ NOT NULL DEFAULT now());
+CREATE SEQUENCE IF NOT EXISTS upload_batch_seq;
+CREATE TABLE upload_batches (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE, filename TEXT NOT NULL, upload_number BIGINT NOT NULL DEFAULT nextval('upload_batch_seq'), total_rows INT NOT NULL DEFAULT 0, imported_rows INT NOT NULL DEFAULT 0, skipped_no_contact INT NOT NULL DEFAULT 0, skipped_duplicate INT NOT NULL DEFAULT 0, created_at TIMESTAMPTZ NOT NULL DEFAULT now());
+CREATE UNIQUE INDEX IF NOT EXISTS idx_batches_upload_number ON upload_batches(upload_number);
 
 -- 3. Leads
 CREATE TABLE leads (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE, upload_batch_id UUID REFERENCES upload_batches(id) ON DELETE SET NULL, full_name TEXT, first_name TEXT, last_name TEXT, job_title TEXT, email TEXT, linkedin_url TEXT, phone TEXT, company_name TEXT, company_website TEXT, company_linkedin TEXT, company_facebook TEXT, raw_company_address TEXT, custom_fields JSONB DEFAULT '{}'::jsonb, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now());

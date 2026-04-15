@@ -222,6 +222,7 @@ export function StepImport({ state, onUpdate, onNext, onBack }: Props) {
           skippedDuplicate,
           newLeads,
           batchId: batch.id,
+          uploadNumber: (batch as { upload_number?: number }).upload_number ?? null,
         },
       });
 

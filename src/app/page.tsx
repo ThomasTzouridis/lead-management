@@ -29,6 +29,7 @@ export type UploadState = {
     skippedDuplicate: number;
     newLeads: Record<string, unknown>[];
     batchId: string;
+    uploadNumber: number | null;
   } | null;
 };
 
