@@ -107,12 +107,13 @@ export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
         </p>
       </div>
 
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
       {state.previewRows.length > 0 && (
         <div className="border rounded-lg bg-card">
           <div className="px-3 py-2 border-b text-sm font-medium">
             CSV Preview (first {state.previewRows.length} rows)
           </div>
-          <div className="overflow-auto max-h-[300px]">
+          <div className="overflow-auto max-h-[500px]">
             <table className="text-xs w-max">
               <thead className="bg-muted/50 sticky top-0">
                 <tr>
@@ -254,6 +255,7 @@ export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
             </div>
           );
         })}
+      </div>
       </div>
 
       <div className="flex justify-between">
