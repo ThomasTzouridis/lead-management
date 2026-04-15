@@ -286,6 +286,7 @@ export default function LeadsPage() {
           extraColumns={extraColumns}
           allCustomKeys={customFieldKeys}
           onAddColumn={(name) => setExtraColumns((prev) => [...prev, name])}
+          batches={batches}
         />
       )}
 

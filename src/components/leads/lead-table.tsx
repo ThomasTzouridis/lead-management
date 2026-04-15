@@ -13,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ArrowUpDown, ArrowUp, ArrowDown, Plus } from "lucide-react";
-import { LEAD_COLUMNS, renameCustomField, type Lead } from "@/lib/lead-queries";
+import { LEAD_COLUMNS, renameCustomField, type Lead, type UploadBatch } from "@/lib/lead-queries";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 
@@ -28,6 +28,7 @@ type Props = {
   extraColumns: string[];
   allCustomKeys: string[];
   onAddColumn: (name: string) => void;
+  batches: UploadBatch[];
 };
 
 export function LeadTable({
@@ -41,7 +42,9 @@ export function LeadTable({
   extraColumns,
   allCustomKeys,
   onAddColumn,
+  batches,
 }: Props) {
+  const batchById = new Map(batches.map((b) => [b.id, b]));
   const [addingColumn, setAddingColumn] = useState(false);
   const [newColumnName, setNewColumnName] = useState("");
   const [editingCell, setEditingCell] = useState<{
@@ -230,6 +233,9 @@ export function LeadTable({
               onCheckedChange={toggleAll}
             />
           </TableHead>
+          <TableHead>
+            <span className="text-xs font-medium">Upload</span>
+          </TableHead>
           {visibleRegularCols.map((col) => (
             <TableHead key={col.key}>
               <button
@@ -318,6 +324,23 @@ export function LeadTable({
                 checked={selectedIds.has(lead.id)}
                 onCheckedChange={() => toggleOne(lead.id)}
               />
+            </TableCell>
+            <TableCell className="whitespace-nowrap">
+              {(() => {
+                const b = lead.upload_batch_id
+                  ? batchById.get(lead.upload_batch_id)
+                  : null;
+                return b ? (
+                  <span
+                    className="text-xs font-medium"
+                    title={b.filename}
+                  >
+                    #{b.upload_number}
+                  </span>
+                ) : (
+                  <span className="text-xs text-muted-foreground">—</span>
+                );
+              })()}
             </TableCell>
             {visibleRegularCols.map((col) => {
               const val = lead[col.key as keyof Lead];
