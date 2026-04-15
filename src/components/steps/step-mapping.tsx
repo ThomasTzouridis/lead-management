@@ -284,13 +284,20 @@ export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
   // Count how many columns are mapped
   const mappedCount = Object.keys(mapping).length;
 
+  // Count columns the user has reviewed: mapped (non-skip) OR explicitly checked
+  const reviewedCount = state.headers.reduce((acc, h) => {
+    const target = mapping[h] || "skip";
+    if (target !== "skip" || reviewedHeaders.has(h)) return acc + 1;
+    return acc;
+  }, 0);
+
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="text-lg font-semibold">Step 3: Map Columns</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            {mappedCount} of {state.headers.length} columns mapped
+            {reviewedCount} of {state.headers.length} columns reviewed
           </p>
         </div>
 
