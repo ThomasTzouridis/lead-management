@@ -102,12 +102,10 @@ export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
       toast.warning(
         `Template "${template.name}" applied, but none of its columns match this CSV`
       );
-    } else if (mappedCount < templateSize) {
-      toast.success(
-        `Template "${template.name}" applied: ${mappedCount} of ${templateSize} columns mapped`
-      );
     } else {
-      toast.success(`Template "${template.name}" applied (${mappedCount} columns)`);
+      toast.success(
+        `Template "${template.name}" applied (${reviewed.length} of ${state.headers.length} columns reviewed, ${mappedCount} mapped)`
+      );
     }
   }
 

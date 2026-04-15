@@ -66,7 +66,7 @@ export function StepUpload({ state, onUpdate, onNext, onBack }: Props) {
       reviewedHeaders: reviewed,
     });
     toast.success(
-      `Template "${template.name}" applied (${Object.keys(applied.mapping).length} columns)`
+      `Template "${template.name}" applied (${reviewed.length} of ${state.headers.length} columns reviewed, ${Object.keys(applied.mapping).length} mapped)`
     );
   }
 
