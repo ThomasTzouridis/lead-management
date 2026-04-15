@@ -25,6 +25,16 @@ export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
   const customFields = state.customFields;
   const [creatingFor, setCreatingFor] = useState<string | null>(null);
   const [newFieldName, setNewFieldName] = useState("");
+  const [manualReview, setManualReview] = useState<Set<string>>(new Set());
+
+  function toggleReview(csvCol: string) {
+    setManualReview((prev) => {
+      const next = new Set(prev);
+      if (next.has(csvCol)) next.delete(csvCol);
+      else next.add(csvCol);
+      return next;
+    });
+  }
 
   // Which target fields are already used
   const usedTargets = useMemo(
@@ -170,10 +180,16 @@ export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
               ? customFields.find((f) => f.value === currentTarget)?.label
               : undefined;
 
+          const isReviewed = currentTarget !== "skip" || manualReview.has(csvCol);
+
           return (
             <div
               key={csvCol}
-              className="flex items-center gap-4 p-3 rounded-lg border bg-card"
+              className={`flex items-center gap-4 p-3 rounded-lg border transition-colors ${
+                isReviewed
+                  ? "bg-green-950/40 border-green-700/60"
+                  : "bg-card"
+              }`}
             >
               {/* CSV column name + sample values */}
               <div className="flex-1 min-w-0">
@@ -252,6 +268,33 @@ export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
                   </Select>
                 )}
               </div>
+
+              {/* Review checkbox */}
+              <button
+                type="button"
+                onClick={() => toggleReview(csvCol)}
+                aria-label="Mark as reviewed"
+                className={`shrink-0 h-6 w-6 rounded border flex items-center justify-center transition-colors ${
+                  isReviewed
+                    ? "bg-green-600 border-green-500 text-white"
+                    : "bg-transparent border-input hover:border-green-600"
+                }`}
+              >
+                {isReviewed && (
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-4 w-4"
+                  >
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                )}
+              </button>
             </div>
           );
         })}
