@@ -182,6 +182,18 @@ export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
   }
 
   const lastReviewIndexRef = useRef<number | null>(null);
+  const previewHeaderRefs = useRef<Record<string, HTMLTableCellElement | null>>({});
+  const [highlightedCol, setHighlightedCol] = useState<string | null>(null);
+
+  function scrollToPreviewColumn(csvCol: string) {
+    const el = previewHeaderRefs.current[csvCol];
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+    setHighlightedCol(csvCol);
+    setTimeout(() => {
+      setHighlightedCol((c) => (c === csvCol ? null : c));
+    }, 1500);
+  }
 
   function toggleReview(csvCol: string, shiftKey: boolean) {
     const idx = state.headers.indexOf(csvCol);
@@ -374,7 +386,12 @@ export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
                   {state.headers.map((h) => (
                     <th
                       key={h}
-                      className="px-3 py-2 text-left font-medium whitespace-nowrap border-b border-r last:border-r-0"
+                      ref={(el) => {
+                        previewHeaderRefs.current[h] = el;
+                      }}
+                      className={`px-3 py-2 text-left font-medium whitespace-nowrap border-b border-r last:border-r-0 transition-colors ${
+                        highlightedCol === h ? "bg-amber-500/30" : ""
+                      }`}
                     >
                       {h}
                     </th>
@@ -390,7 +407,9 @@ export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
                       return (
                         <td
                           key={h}
-                          className="px-3 py-2 whitespace-nowrap border-r last:border-r-0 text-muted-foreground"
+                          className={`px-3 py-2 whitespace-nowrap border-r last:border-r-0 text-muted-foreground transition-colors ${
+                            highlightedCol === h ? "bg-amber-500/15" : ""
+                          }`}
                           title={s}
                         >
                           {s.length > 60 ? s.slice(0, 60) + "…" : s}
@@ -437,7 +456,14 @@ export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
             >
               {/* CSV column name + sample values */}
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{csvCol}</p>
+                <button
+                  type="button"
+                  onClick={() => scrollToPreviewColumn(csvCol)}
+                  className="text-sm font-medium truncate text-left hover:underline w-full"
+                  title="Click to scroll preview to this column"
+                >
+                  {csvCol}
+                </button>
                 {samples.length > 0 && (
                   <p className="text-xs text-muted-foreground truncate">
                     e.g. {samples.join(", ")}
