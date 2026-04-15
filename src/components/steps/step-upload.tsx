@@ -177,10 +177,29 @@ export function StepUpload({ state, onUpdate, onNext, onBack }: Props) {
 
       {hasFile && (
         <div className="space-y-3">
-          <p className="text-sm font-medium">
-            {state.rowCount.toLocaleString()} rows,{" "}
-            {state.headers.length} columns detected
-          </p>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm font-medium">
+              {state.rowCount.toLocaleString()} rows,{" "}
+              {state.headers.length} columns detected
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (fileRef.current) fileRef.current.value = "";
+                onUpdate({
+                  file: null,
+                  headers: [],
+                  previewRows: [],
+                  rowCount: 0,
+                  mapping: {},
+                  reviewedHeaders: [],
+                });
+              }}
+            >
+              Remove file
+            </Button>
+          </div>
 
           {/* Template match banner */}
           {suggestedTemplate && (
