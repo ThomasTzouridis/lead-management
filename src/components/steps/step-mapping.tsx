@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -181,10 +181,26 @@ export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
     }
   }
 
-  function toggleReview(csvCol: string) {
+  const lastReviewIndexRef = useRef<number | null>(null);
+
+  function toggleReview(csvCol: string, shiftKey: boolean) {
+    const idx = state.headers.indexOf(csvCol);
     const next = new Set(state.reviewedHeaders);
-    if (next.has(csvCol)) next.delete(csvCol);
-    else next.add(csvCol);
+    const willCheck = !next.has(csvCol);
+
+    if (shiftKey && lastReviewIndexRef.current != null && idx !== -1) {
+      const [from, to] = [lastReviewIndexRef.current, idx].sort((a, b) => a - b);
+      for (let i = from; i <= to; i++) {
+        const h = state.headers[i];
+        if (willCheck) next.add(h);
+        else next.delete(h);
+      }
+    } else {
+      if (willCheck) next.add(csvCol);
+      else next.delete(csvCol);
+    }
+
+    lastReviewIndexRef.current = idx;
     onUpdate({ reviewedHeaders: Array.from(next) });
   }
 
@@ -501,7 +517,7 @@ export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
               {!isCreating && (
               <button
                 type="button"
-                onClick={() => toggleReview(csvCol)}
+                onClick={(e) => toggleReview(csvCol, e.shiftKey)}
                 aria-label="Mark as reviewed"
                 className={`shrink-0 -ml-2 h-6 w-6 rounded border flex items-center justify-center transition-colors ${
                   isReviewed
