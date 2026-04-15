@@ -251,10 +251,6 @@ export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="text-lg font-semibold">Step 3: Map Columns</h2>
-          <p className="text-sm text-muted-foreground">
-            For each CSV column, choose which lead field it maps to.
-            Unmapped columns will be dropped.
-          </p>
           <p className="text-sm text-muted-foreground mt-1">
             {mappedCount} of {state.headers.length} columns mapped
           </p>
