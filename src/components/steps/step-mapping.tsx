@@ -117,7 +117,7 @@ export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_480px] gap-3 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
       {state.previewRows.length > 0 && (
         <div className="border rounded-lg bg-card">
           <div className="px-3 py-2 border-b text-sm font-medium">
@@ -185,7 +185,7 @@ export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
           return (
             <div
               key={csvCol}
-              className={`flex items-center gap-4 p-3 rounded-lg border transition-colors ${
+              className={`flex items-center gap-2 p-3 rounded-lg border transition-colors ${
                 isReviewed
                   ? "bg-green-950/40 border-green-700/60"
                   : "bg-card"
