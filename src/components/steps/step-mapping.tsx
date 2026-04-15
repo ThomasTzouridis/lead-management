@@ -17,14 +17,6 @@ import {
   DialogFooter,
   DialogDescription,
 } from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { TARGET_FIELDS, CUSTOM_FIELD_PREFIX } from "@/lib/constants";
 import {
   fetchMappingTemplates,
@@ -268,99 +260,78 @@ export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
           </p>
         </div>
 
-        {/* Template toolbar */}
+        {/* Template toolbar — uses native <select> to avoid Radix Portal
+            re-rendering the full Step 3 tree (which crashes the tab on large CSVs). */}
         <div className="flex items-center gap-2 shrink-0">
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              disabled={!templatesLoaded}
-              className="inline-flex items-center gap-1.5 rounded-md border border-input bg-transparent px-3 h-8 text-sm hover:bg-accent disabled:opacity-50 transition-colors"
-            >
-              {matches.exact.length > 0
-                ? `📋 Load template (${matches.exact.length} match)`
-                : "📋 Load template"}
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-64 max-h-[400px] overflow-auto">
-              {templates.length === 0 ? (
-                <DropdownMenuLabel className="text-muted-foreground font-normal">
-                  No saved templates yet
-                </DropdownMenuLabel>
-              ) : (
-                <>
-                  {matches.exact.length > 0 && (
-                    <>
-                      <DropdownMenuLabel className="text-xs text-green-500">
-                        Exact match
-                      </DropdownMenuLabel>
-                      {matches.exact.map((t) => (
-                        <DropdownMenuItem
-                          key={t.id}
-                          onClick={() => handleApplyTemplate(t)}
-                        >
-                          <span className="truncate">
-                            {lastAppliedTemplateId === t.id ? "✓ " : ""}
-                            {t.name}
-                          </span>
-                        </DropdownMenuItem>
-                      ))}
-                      <DropdownMenuSeparator />
-                    </>
-                  )}
-                  {matches.partial.length > 0 && (
-                    <>
-                      <DropdownMenuLabel className="text-xs text-amber-500">
-                        Partial match
-                      </DropdownMenuLabel>
-                      {matches.partial.map(({ template, overlap, total }) => (
-                        <DropdownMenuItem
-                          key={template.id}
-                          onClick={() => handleApplyTemplate(template)}
-                        >
-                          <span className="truncate flex-1">
-                            {lastAppliedTemplateId === template.id ? "✓ " : ""}
-                            {template.name}
-                          </span>
-                          <span className="text-xs text-muted-foreground ml-2 shrink-0">
-                            {overlap}/{total}
-                          </span>
-                        </DropdownMenuItem>
-                      ))}
-                      <DropdownMenuSeparator />
-                    </>
-                  )}
-                  {(() => {
-                    const matchedIds = new Set([
-                      ...matches.exact.map((t) => t.id),
-                      ...matches.partial.map((p) => p.template.id),
-                    ]);
-                    const others = templates.filter((t) => !matchedIds.has(t.id));
-                    if (others.length === 0) return null;
-                    return (
-                      <>
-                        <DropdownMenuLabel className="text-xs text-muted-foreground">
-                          Other templates
-                        </DropdownMenuLabel>
-                        {others.map((t) => (
-                          <DropdownMenuItem
-                            key={t.id}
-                            onClick={() => handleApplyTemplate(t)}
-                          >
-                            <span className="truncate">
-                              {lastAppliedTemplateId === t.id ? "✓ " : ""}
-                              {t.name}
-                            </span>
-                          </DropdownMenuItem>
-                        ))}
-                      </>
-                    );
-                  })()}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setManageDialogOpen(true)}>
-                    <span className="text-muted-foreground">Manage templates…</span>
-                  </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <select
+            disabled={!templatesLoaded || templates.length === 0}
+            value=""
+            onChange={(e) => {
+              const id = e.target.value;
+              if (!id) return;
+              const t = templates.find((x) => x.id === id);
+              if (t) handleApplyTemplate(t);
+              // reset so the same template can be re-applied later
+              e.currentTarget.value = "";
+            }}
+            className="h-8 rounded-md border border-input bg-background px-2 text-sm disabled:opacity-50"
+            aria-label="Load template"
+          >
+            <option value="">
+              {templates.length === 0
+                ? "📋 No templates yet"
+                : matches.exact.length > 0
+                  ? `📋 Load template (${matches.exact.length} match)`
+                  : "📋 Load template"}
+            </option>
+            {matches.exact.length > 0 && (
+              <optgroup label="Exact match">
+                {matches.exact.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {lastAppliedTemplateId === t.id ? "✓ " : ""}
+                    {t.name}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+            {matches.partial.length > 0 && (
+              <optgroup label="Partial match">
+                {matches.partial.map(({ template, overlap, total }) => (
+                  <option key={template.id} value={template.id}>
+                    {lastAppliedTemplateId === template.id ? "✓ " : ""}
+                    {template.name} ({overlap}/{total})
+                  </option>
+                ))}
+              </optgroup>
+            )}
+            {(() => {
+              const matchedIds = new Set([
+                ...matches.exact.map((t) => t.id),
+                ...matches.partial.map((p) => p.template.id),
+              ]);
+              const others = templates.filter((t) => !matchedIds.has(t.id));
+              if (others.length === 0) return null;
+              return (
+                <optgroup label="Other templates">
+                  {others.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {lastAppliedTemplateId === t.id ? "✓ " : ""}
+                      {t.name}
+                    </option>
+                  ))}
+                </optgroup>
+              );
+            })()}
+          </select>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setManageDialogOpen(true)}
+            disabled={templates.length === 0}
+          >
+            Manage
+          </Button>
 
           <Button variant="outline" size="sm" onClick={openSaveDialog}>
             💾 Save as template
