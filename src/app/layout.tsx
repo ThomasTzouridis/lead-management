@@ -32,7 +32,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <NavHeader />
         <main className="flex-1">{children}</main>
-        <Toaster />
+        <Toaster position="bottom-left" />
       </body>
     </html>
   );
