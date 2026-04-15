@@ -21,6 +21,7 @@ export type UploadState = {
   rowCount: number; // total parsed rows — rows themselves are re-streamed in Step 4
   mapping: Record<string, string>; // csvColumn → targetField
   customFields: { value: string; label: string }[]; // user-created fields for this session
+  reviewedHeaders: string[]; // headers the user (or an applied template) has marked as reviewed
   results: {
     total: number;
     imported: number;
@@ -41,6 +42,7 @@ function createInitialState(): UploadState {
     rowCount: 0,
     mapping: {},
     customFields: [],
+    reviewedHeaders: [],
     results: null,
   };
 }

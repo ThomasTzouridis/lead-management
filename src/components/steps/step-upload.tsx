@@ -58,7 +58,13 @@ export function StepUpload({ state, onUpdate, onNext, onBack }: Props) {
 
   function handleApplySuggested(template: MappingTemplate) {
     const applied = applyMappingTemplate(template, state.headers, state.customFields);
-    onUpdate({ mapping: applied.mapping, customFields: applied.customFields });
+    const headerSet = new Set(state.headers);
+    const reviewed = template.headers.filter((h) => headerSet.has(h));
+    onUpdate({
+      mapping: applied.mapping,
+      customFields: applied.customFields,
+      reviewedHeaders: reviewed,
+    });
     toast.success(
       `Template "${template.name}" applied (${Object.keys(applied.mapping).length} columns)`
     );
@@ -126,6 +132,7 @@ export function StepUpload({ state, onUpdate, onNext, onBack }: Props) {
           previewRows,
           rowCount,
           mapping: sameHeaders ? state.mapping : {},
+          reviewedHeaders: sameHeaders ? state.reviewedHeaders : [],
         });
 
         if (malformedCount > 0) {

@@ -39,9 +39,12 @@ type Props = {
 export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
   const mapping = state.mapping;
   const customFields = state.customFields;
+  const reviewedHeaders = useMemo(
+    () => new Set(state.reviewedHeaders),
+    [state.reviewedHeaders]
+  );
   const [creatingFor, setCreatingFor] = useState<string | null>(null);
   const [newFieldName, setNewFieldName] = useState("");
-  const [manualReview, setManualReview] = useState<Set<string>>(new Set());
 
   // --- Templates state ---
   const [templates, setTemplates] = useState<MappingTemplate[]>([]);
@@ -83,7 +86,16 @@ export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
     const mappedCount = Object.keys(applied.mapping).length;
     const templateSize = Object.keys(template.mapping).length;
 
-    onUpdate({ mapping: applied.mapping, customFields: applied.customFields });
+    // Mark every header the template knew about as reviewed.
+    // Any header left unchecked after apply is brand new / not covered by the template.
+    const headerSet = new Set(state.headers);
+    const reviewed = template.headers.filter((h) => headerSet.has(h));
+
+    onUpdate({
+      mapping: applied.mapping,
+      customFields: applied.customFields,
+      reviewedHeaders: reviewed,
+    });
     setLastAppliedTemplateId(template.id);
 
     if (mappedCount === 0) {
@@ -170,12 +182,10 @@ export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
   }
 
   function toggleReview(csvCol: string) {
-    setManualReview((prev) => {
-      const next = new Set(prev);
-      if (next.has(csvCol)) next.delete(csvCol);
-      else next.add(csvCol);
-      return next;
-    });
+    const next = new Set(state.reviewedHeaders);
+    if (next.has(csvCol)) next.delete(csvCol);
+    else next.add(csvCol);
+    onUpdate({ reviewedHeaders: Array.from(next) });
   }
 
   // Which target fields are already used
@@ -398,7 +408,7 @@ export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
               ? customFields.find((f) => f.value === currentTarget)?.label
               : undefined;
 
-          const isReviewed = currentTarget !== "skip" || manualReview.has(csvCol);
+          const isReviewed = currentTarget !== "skip" || reviewedHeaders.has(csvCol);
 
           return (
             <div
