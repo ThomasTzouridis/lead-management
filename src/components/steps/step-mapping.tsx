@@ -113,7 +113,7 @@ export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
           <div className="px-3 py-2 border-b text-sm font-medium">
             CSV Preview (first {state.previewRows.length} rows)
           </div>
-          <div className="overflow-auto max-h-[500px]">
+          <div className="overflow-auto max-h-[700px]">
             <table className="text-xs w-max">
               <thead className="bg-muted/50 sticky top-0">
                 <tr>
@@ -151,7 +151,7 @@ export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
         </div>
       )}
 
-      <div className="space-y-2 max-h-[500px] overflow-auto">
+      <div className="space-y-2 max-h-[700px] overflow-auto">
         {state.headers.map((csvCol) => {
           const currentTarget = mapping[csvCol] || "skip";
           const isCreating = creatingFor === csvCol;

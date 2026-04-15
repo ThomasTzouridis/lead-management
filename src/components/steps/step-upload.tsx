@@ -63,7 +63,7 @@ export function StepUpload({ state, onUpdate, onNext, onBack }: Props) {
           return;
         }
 
-        const previewRows = allRows.slice(0, 5);
+        const previewRows = allRows.slice(0, 100);
 
         onUpdate({
           file,
@@ -150,7 +150,7 @@ export function StepUpload({ state, onUpdate, onNext, onBack }: Props) {
             </table>
           </div>
           <p className="text-xs text-muted-foreground">
-            Showing first 5 rows as preview
+            Showing first {state.previewRows.length} rows as preview
           </p>
         </div>
       )}
