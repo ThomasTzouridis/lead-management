@@ -539,10 +539,6 @@ export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Save as template</DialogTitle>
-            <DialogDescription>
-              This saves the current column mapping and custom fields so you can reuse them
-              on CSVs with the same structure.
-            </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
             <label className="text-sm font-medium">Template name</label>
@@ -553,7 +549,6 @@ export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !saving) handleSaveTemplate();
               }}
-              placeholder="e.g. Vayne Leads Advanced"
               autoFocus
               className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
             />
