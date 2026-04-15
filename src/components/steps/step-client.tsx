@@ -121,7 +121,10 @@ export function StepClient({ state, onUpdate, onNext }: Props) {
               onValueChange={(v) => v && handleSelect(v)}
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select a client..." />
+                <SelectValue placeholder="Select a client...">
+                  {state.clientName ||
+                    clients.find((c) => c.id === state.clientId)?.name}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {clients.map((c) => (

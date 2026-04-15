@@ -107,6 +107,49 @@ export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
         </p>
       </div>
 
+      {state.previewRows.length > 0 && (
+        <div className="border rounded-lg bg-card">
+          <div className="px-3 py-2 border-b text-sm font-medium">
+            CSV Preview (first {state.previewRows.length} rows)
+          </div>
+          <div className="overflow-auto max-h-[300px]">
+            <table className="text-xs w-max">
+              <thead className="bg-muted/50 sticky top-0">
+                <tr>
+                  {state.headers.map((h) => (
+                    <th
+                      key={h}
+                      className="px-3 py-2 text-left font-medium whitespace-nowrap border-b border-r last:border-r-0"
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {state.previewRows.map((row, i) => (
+                  <tr key={i} className="border-b last:border-b-0">
+                    {state.headers.map((h) => {
+                      const v = row[h];
+                      const s = v == null ? "" : String(v);
+                      return (
+                        <td
+                          key={h}
+                          className="px-3 py-2 whitespace-nowrap border-r last:border-r-0 text-muted-foreground"
+                          title={s}
+                        >
+                          {s.length > 60 ? s.slice(0, 60) + "…" : s}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       <div className="space-y-2 max-h-[500px] overflow-auto">
         {state.headers.map((csvCol) => {
           const currentTarget = mapping[csvCol] || "skip";
