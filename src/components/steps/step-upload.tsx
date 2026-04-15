@@ -1,10 +1,16 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import Papa from "papaparse";
 import type { UploadState } from "@/app/page";
+import {
+  fetchMappingTemplates,
+  classifyTemplateMatches,
+  applyMappingTemplate,
+  type MappingTemplate,
+} from "@/lib/lead-queries";
 
 type Props = {
   state: UploadState;
@@ -18,6 +24,45 @@ const MAX_FILE_SIZE = 200 * 1024 * 1024; // 200 MB
 export function StepUpload({ state, onUpdate, onNext, onBack }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [parsing, setParsing] = useState(false);
+  const [templates, setTemplates] = useState<MappingTemplate[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchMappingTemplates()
+      .then((data) => {
+        if (!cancelled) setTemplates(data);
+      })
+      .catch(() => {
+        /* silent — step 3 will surface the error */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const matches = useMemo(
+    () =>
+      state.headers.length > 0
+        ? classifyTemplateMatches(templates, state.headers)
+        : { exact: [], partial: [] },
+    [templates, state.headers]
+  );
+
+  const suggestedTemplate =
+    matches.exact[0] || matches.partial[0]?.template || null;
+  const suggestedIsExact = matches.exact.length > 0;
+  const suggestedPartialInfo =
+    !suggestedIsExact && matches.partial[0]
+      ? { overlap: matches.partial[0].overlap, total: matches.partial[0].total }
+      : null;
+
+  function handleApplySuggested(template: MappingTemplate) {
+    const applied = applyMappingTemplate(template, state.headers, state.customFields);
+    onUpdate({ mapping: applied.mapping, customFields: applied.customFields });
+    toast.success(
+      `Template "${template.name}" applied (${Object.keys(applied.mapping).length} columns)`
+    );
+  }
 
   function handleFile(file: File | undefined) {
     if (!file) return;
@@ -117,6 +162,32 @@ export function StepUpload({ state, onUpdate, onNext, onBack }: Props) {
             {state.allRows.length.toLocaleString()} rows,{" "}
             {state.headers.length} columns detected
           </p>
+
+          {/* Template match banner */}
+          {suggestedTemplate && (
+            <div
+              className={`flex items-center justify-between gap-3 p-3 rounded-lg border ${
+                suggestedIsExact
+                  ? "bg-green-950/40 border-green-700/60"
+                  : "bg-amber-950/30 border-amber-700/50"
+              }`}
+            >
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium">
+                  📋 {suggestedIsExact ? "Matching template found" : "Similar template found"}:{" "}
+                  <span className="font-semibold">{suggestedTemplate.name}</span>
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {suggestedIsExact
+                    ? "Headers match exactly. Click Apply to auto-fill the column mapping."
+                    : `${suggestedPartialInfo?.overlap} of ${suggestedPartialInfo?.total} columns match. Apply and review in Step 3.`}
+                </p>
+              </div>
+              <Button size="sm" onClick={() => handleApplySuggested(suggestedTemplate)}>
+                Apply
+              </Button>
+            </div>
+          )}
 
           {/* Preview table */}
           <div className="border rounded-lg overflow-auto max-h-[300px]">

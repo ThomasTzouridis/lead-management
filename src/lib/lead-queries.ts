@@ -281,6 +281,125 @@ export async function bulkUpdateCustomField(
   }
 }
 
+// ---------------------------------------------------------------------------
+// Mapping templates — reusable column mappings across similar CSV formats
+// ---------------------------------------------------------------------------
+
+export type MappingTemplate = {
+  id: string;
+  name: string;
+  headers: string[];
+  mapping: Record<string, string>;
+  custom_fields: { value: string; label: string }[];
+  created_at: string;
+  updated_at: string;
+};
+
+/** Fetch all mapping templates, ordered by name */
+export async function fetchMappingTemplates(): Promise<MappingTemplate[]> {
+  const { data, error } = await supabase
+    .from("mapping_templates")
+    .select("*")
+    .order("name", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data || []) as MappingTemplate[];
+}
+
+/** Upsert a mapping template by name (overwrites if name exists) */
+export async function saveMappingTemplate(
+  name: string,
+  headers: string[],
+  mapping: Record<string, string>,
+  customFields: { value: string; label: string }[]
+): Promise<MappingTemplate> {
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error("Template name cannot be empty");
+
+  const payload = {
+    name: trimmed,
+    headers: [...headers].sort(),
+    mapping,
+    custom_fields: customFields,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { data, error } = await supabase
+    .from("mapping_templates")
+    .upsert(payload, { onConflict: "name" })
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data as MappingTemplate;
+}
+
+/** Delete a mapping template by id */
+export async function deleteMappingTemplate(id: string): Promise<void> {
+  const { error } = await supabase.from("mapping_templates").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+/**
+ * Classify templates against a CSV's headers.
+ * - "exact" = template headers match current headers (set equality)
+ * - "partial" = 70%+ overlap (ranked by overlap count)
+ */
+export function classifyTemplateMatches(
+  templates: MappingTemplate[],
+  csvHeaders: string[]
+): {
+  exact: MappingTemplate[];
+  partial: Array<{ template: MappingTemplate; overlap: number; total: number }>;
+} {
+  const currentSet = new Set(csvHeaders);
+  const sortedKey = JSON.stringify([...csvHeaders].sort());
+
+  const exact: MappingTemplate[] = [];
+  const partial: Array<{ template: MappingTemplate; overlap: number; total: number }> = [];
+
+  for (const t of templates) {
+    const tKey = JSON.stringify([...t.headers].sort());
+    if (tKey === sortedKey) {
+      exact.push(t);
+      continue;
+    }
+    const overlap = t.headers.filter((h) => currentSet.has(h)).length;
+    const total = Math.max(t.headers.length, csvHeaders.length);
+    if (total > 0 && overlap / total >= 0.7) {
+      partial.push({ template: t, overlap, total });
+    }
+  }
+  partial.sort((a, b) => b.overlap - a.overlap);
+  return { exact, partial };
+}
+
+/**
+ * Safely apply a template to the current CSV:
+ * - Only maps csvCols that actually exist in currentHeaders (defensive)
+ * - Merges template custom_fields into existing by `value` (no duplicates, no clobber)
+ */
+export function applyMappingTemplate(
+  template: MappingTemplate,
+  currentHeaders: string[],
+  existingCustomFields: { value: string; label: string }[]
+): {
+  mapping: Record<string, string>;
+  customFields: { value: string; label: string }[];
+} {
+  const headerSet = new Set(currentHeaders);
+  const mapping: Record<string, string> = {};
+  for (const [csvCol, target] of Object.entries(template.mapping)) {
+    if (headerSet.has(csvCol)) mapping[csvCol] = target;
+  }
+
+  const byValue = new Map(existingCustomFields.map((f) => [f.value, f]));
+  for (const f of template.custom_fields) {
+    if (!byValue.has(f.value)) byValue.set(f.value, f);
+  }
+
+  return { mapping, customFields: Array.from(byValue.values()) };
+}
+
 async function bulkUpdateCustomFieldFallback(
   ids: string[],
   fieldName: string,

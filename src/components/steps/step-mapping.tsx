@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -9,7 +9,31 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { TARGET_FIELDS, CUSTOM_FIELD_PREFIX } from "@/lib/constants";
+import {
+  fetchMappingTemplates,
+  saveMappingTemplate,
+  deleteMappingTemplate,
+  classifyTemplateMatches,
+  applyMappingTemplate,
+  type MappingTemplate,
+} from "@/lib/lead-queries";
 import { toast } from "sonner";
 import type { UploadState } from "@/app/page";
 
@@ -26,6 +50,132 @@ export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
   const [creatingFor, setCreatingFor] = useState<string | null>(null);
   const [newFieldName, setNewFieldName] = useState("");
   const [manualReview, setManualReview] = useState<Set<string>>(new Set());
+
+  // --- Templates state ---
+  const [templates, setTemplates] = useState<MappingTemplate[]>([]);
+  const [templatesLoaded, setTemplatesLoaded] = useState(false);
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [saveName, setSaveName] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [manageDialogOpen, setManageDialogOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [lastAppliedTemplateId, setLastAppliedTemplateId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchMappingTemplates()
+      .then((data) => {
+        if (!cancelled) {
+          setTemplates(data);
+          setTemplatesLoaded(true);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setTemplatesLoaded(true);
+          toast.error(`Could not load templates: ${err.message}`);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const matches = useMemo(
+    () => classifyTemplateMatches(templates, state.headers),
+    [templates, state.headers]
+  );
+
+  function handleApplyTemplate(template: MappingTemplate) {
+    const applied = applyMappingTemplate(template, state.headers, customFields);
+    const mappedCount = Object.keys(applied.mapping).length;
+    const templateSize = Object.keys(template.mapping).length;
+
+    onUpdate({ mapping: applied.mapping, customFields: applied.customFields });
+    setLastAppliedTemplateId(template.id);
+
+    if (mappedCount === 0) {
+      toast.warning(
+        `Template "${template.name}" applied, but none of its columns match this CSV`
+      );
+    } else if (mappedCount < templateSize) {
+      toast.success(
+        `Template "${template.name}" applied: ${mappedCount} of ${templateSize} columns mapped`
+      );
+    } else {
+      toast.success(`Template "${template.name}" applied (${mappedCount} columns)`);
+    }
+  }
+
+  function openSaveDialog() {
+    const mappedCount = Object.keys(mapping).length;
+    if (mappedCount === 0) {
+      toast.error("Map at least one column before saving a template");
+      return;
+    }
+    // Suggest a default name based on file name (without extension)
+    const fileBase = state.file?.name.replace(/\.csv$/i, "") || "";
+    setSaveName(fileBase);
+    setSaveDialogOpen(true);
+  }
+
+  async function handleSaveTemplate() {
+    const name = saveName.trim();
+    if (!name) {
+      toast.error("Template name cannot be empty");
+      return;
+    }
+
+    const exists = templates.some((t) => t.name === name);
+    if (exists) {
+      const ok = window.confirm(
+        `A template named "${name}" already exists. Overwrite it?`
+      );
+      if (!ok) return;
+    }
+
+    setSaving(true);
+    try {
+      const saved = await saveMappingTemplate(
+        name,
+        state.headers,
+        mapping,
+        customFields
+      );
+      setTemplates((prev) => {
+        const filtered = prev.filter((t) => t.name !== saved.name);
+        return [...filtered, saved].sort((a, b) => a.name.localeCompare(b.name));
+      });
+      setLastAppliedTemplateId(saved.id);
+      setSaveDialogOpen(false);
+      setSaveName("");
+      toast.success(`Template "${saved.name}" saved`);
+    } catch (err) {
+      toast.error(
+        `Could not save template: ${err instanceof Error ? err.message : String(err)}`
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDeleteTemplate(id: string, name: string) {
+    const ok = window.confirm(`Delete template "${name}"? This cannot be undone.`);
+    if (!ok) return;
+    setDeletingId(id);
+    try {
+      await deleteMappingTemplate(id);
+      setTemplates((prev) => prev.filter((t) => t.id !== id));
+      if (lastAppliedTemplateId === id) setLastAppliedTemplateId(null);
+      toast.success(`Template "${name}" deleted`);
+    } catch (err) {
+      toast.error(
+        `Could not delete template: ${err instanceof Error ? err.message : String(err)}`
+      );
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   function toggleReview(csvCol: string) {
     setManualReview((prev) => {
@@ -45,7 +195,7 @@ export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
   function setMapping(csvCol: string, target: string) {
     if (target === "__create_custom__") {
       setCreatingFor(csvCol);
-      setNewFieldName("");
+      setNewFieldName(csvCol);
       return;
     }
 
@@ -106,15 +256,116 @@ export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold">Step 3: Map Columns</h2>
-        <p className="text-sm text-muted-foreground">
-          For each CSV column, choose which lead field it maps to.
-          Unmapped columns will be dropped.
-        </p>
-        <p className="text-sm text-muted-foreground mt-1">
-          {mappedCount} of {state.headers.length} columns mapped
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-semibold">Step 3: Map Columns</h2>
+          <p className="text-sm text-muted-foreground">
+            For each CSV column, choose which lead field it maps to.
+            Unmapped columns will be dropped.
+          </p>
+          <p className="text-sm text-muted-foreground mt-1">
+            {mappedCount} of {state.headers.length} columns mapped
+          </p>
+        </div>
+
+        {/* Template toolbar */}
+        <div className="flex items-center gap-2 shrink-0">
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              disabled={!templatesLoaded}
+              className="inline-flex items-center gap-1.5 rounded-md border border-input bg-transparent px-3 h-8 text-sm hover:bg-accent disabled:opacity-50 transition-colors"
+            >
+              {matches.exact.length > 0
+                ? `📋 Load template (${matches.exact.length} match)`
+                : "📋 Load template"}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64 max-h-[400px] overflow-auto">
+              {templates.length === 0 ? (
+                <DropdownMenuLabel className="text-muted-foreground font-normal">
+                  No saved templates yet
+                </DropdownMenuLabel>
+              ) : (
+                <>
+                  {matches.exact.length > 0 && (
+                    <>
+                      <DropdownMenuLabel className="text-xs text-green-500">
+                        Exact match
+                      </DropdownMenuLabel>
+                      {matches.exact.map((t) => (
+                        <DropdownMenuItem
+                          key={t.id}
+                          onClick={() => handleApplyTemplate(t)}
+                        >
+                          <span className="truncate">
+                            {lastAppliedTemplateId === t.id ? "✓ " : ""}
+                            {t.name}
+                          </span>
+                        </DropdownMenuItem>
+                      ))}
+                      <DropdownMenuSeparator />
+                    </>
+                  )}
+                  {matches.partial.length > 0 && (
+                    <>
+                      <DropdownMenuLabel className="text-xs text-amber-500">
+                        Partial match
+                      </DropdownMenuLabel>
+                      {matches.partial.map(({ template, overlap, total }) => (
+                        <DropdownMenuItem
+                          key={template.id}
+                          onClick={() => handleApplyTemplate(template)}
+                        >
+                          <span className="truncate flex-1">
+                            {lastAppliedTemplateId === template.id ? "✓ " : ""}
+                            {template.name}
+                          </span>
+                          <span className="text-xs text-muted-foreground ml-2 shrink-0">
+                            {overlap}/{total}
+                          </span>
+                        </DropdownMenuItem>
+                      ))}
+                      <DropdownMenuSeparator />
+                    </>
+                  )}
+                  {(() => {
+                    const matchedIds = new Set([
+                      ...matches.exact.map((t) => t.id),
+                      ...matches.partial.map((p) => p.template.id),
+                    ]);
+                    const others = templates.filter((t) => !matchedIds.has(t.id));
+                    if (others.length === 0) return null;
+                    return (
+                      <>
+                        <DropdownMenuLabel className="text-xs text-muted-foreground">
+                          Other templates
+                        </DropdownMenuLabel>
+                        {others.map((t) => (
+                          <DropdownMenuItem
+                            key={t.id}
+                            onClick={() => handleApplyTemplate(t)}
+                          >
+                            <span className="truncate">
+                              {lastAppliedTemplateId === t.id ? "✓ " : ""}
+                              {t.name}
+                            </span>
+                          </DropdownMenuItem>
+                        ))}
+                      </>
+                    );
+                  })()}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setManageDialogOpen(true)}>
+                    <span className="text-muted-foreground">Manage templates…</span>
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <Button variant="outline" size="sm" onClick={openSaveDialog}>
+            💾 Save as template
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
@@ -269,7 +520,8 @@ export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
                 )}
               </div>
 
-              {/* Review checkbox */}
+              {/* Review checkbox — hidden while naming a custom field to avoid overlap with X */}
+              {!isCreating && (
               <button
                 type="button"
                 onClick={() => toggleReview(csvCol)}
@@ -295,6 +547,7 @@ export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
                   </svg>
                 )}
               </button>
+              )}
             </div>
           );
         })}
@@ -309,6 +562,91 @@ export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
           Next: Import
         </Button>
       </div>
+
+      {/* Save-as-template dialog */}
+      <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Save as template</DialogTitle>
+            <DialogDescription>
+              This saves the current column mapping and custom fields so you can reuse them
+              on CSVs with the same structure.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Template name</label>
+            <input
+              type="text"
+              value={saveName}
+              onChange={(e) => setSaveName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !saving) handleSaveTemplate();
+              }}
+              placeholder="e.g. Vayne Leads Advanced"
+              autoFocus
+              className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
+            />
+            <p className="text-xs text-muted-foreground">
+              Saving {Object.keys(mapping).length} mapped columns
+              {customFields.length > 0 && ` + ${customFields.length} custom field${customFields.length === 1 ? "" : "s"}`}
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSaveDialogOpen(false)} disabled={saving}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveTemplate} disabled={saving}>
+              {saving ? "Saving…" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manage templates dialog */}
+      <Dialog open={manageDialogOpen} onOpenChange={setManageDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Manage templates</DialogTitle>
+            <DialogDescription>
+              Delete templates you no longer need. This does not affect already-imported leads.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 max-h-[400px] overflow-auto">
+            {templates.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No templates saved.</p>
+            ) : (
+              templates.map((t) => (
+                <div
+                  key={t.id}
+                  className="flex items-center justify-between gap-3 p-3 border rounded-lg"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate">{t.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {t.headers.length} columns · {Object.keys(t.mapping).length} mapped
+                      {t.custom_fields.length > 0 &&
+                        ` · ${t.custom_fields.length} custom`}
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDeleteTemplate(t.id, t.name)}
+                    disabled={deletingId === t.id}
+                  >
+                    {deletingId === t.id ? "…" : "Delete"}
+                  </Button>
+                </div>
+              ))
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setManageDialogOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

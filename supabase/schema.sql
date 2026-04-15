@@ -59,3 +59,17 @@ ALTER TABLE upload_batches ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Anon full access" ON clients FOR ALL TO anon USING (true) WITH CHECK (true);
 CREATE POLICY "Anon full access" ON leads FOR ALL TO anon USING (true) WITH CHECK (true);
 CREATE POLICY "Anon full access" ON upload_batches FOR ALL TO anon USING (true) WITH CHECK (true);
+
+-- 8. Mapping templates — reusable column mappings across similar CSV formats
+CREATE TABLE mapping_templates (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL UNIQUE,
+  headers TEXT[] NOT NULL,
+  mapping JSONB NOT NULL DEFAULT '{}'::jsonb,
+  custom_fields JSONB NOT NULL DEFAULT '[]'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TRIGGER mapping_templates_updated_at BEFORE UPDATE ON mapping_templates FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+ALTER TABLE mapping_templates ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Anon full access" ON mapping_templates FOR ALL TO anon USING (true) WITH CHECK (true);
