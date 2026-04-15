@@ -63,7 +63,7 @@ export function StepUpload({ state, onUpdate, onNext, onBack }: Props) {
           return;
         }
 
-        const previewRows = allRows.slice(0, 100);
+        const previewRows = allRows.slice(0, 20);
 
         onUpdate({
           file,
