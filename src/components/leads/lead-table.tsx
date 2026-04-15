@@ -13,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ArrowUpDown, ArrowUp, ArrowDown, Plus } from "lucide-react";
-import { LEAD_COLUMNS, type Lead } from "@/lib/lead-queries";
+import { LEAD_COLUMNS, renameCustomField, type Lead } from "@/lib/lead-queries";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 
@@ -49,7 +49,36 @@ export function LeadTable({
     field: string;
   } | null>(null);
   const [editValue, setEditValue] = useState("");
+  const [renamingCol, setRenamingCol] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [renamingBusy, setRenamingBusy] = useState(false);
   const savingRef = useRef(false); // Prevent double-save from Enter + onBlur
+
+  async function commitRename() {
+    if (renamingBusy || !renamingCol) return;
+    const next = renameValue.trim();
+    if (!next || next === renamingCol) {
+      setRenamingCol(null);
+      return;
+    }
+    if (customFieldKeys.has(next)) {
+      toast.error(`Column "${next}" already exists`);
+      return;
+    }
+    setRenamingBusy(true);
+    try {
+      const count = await renameCustomField(renamingCol, next);
+      toast.success(`Renamed to "${next}" (${count} leads updated)`);
+      setRenamingCol(null);
+      onLeadUpdated();
+    } catch (err) {
+      toast.error(
+        `Rename failed: ${err instanceof Error ? err.message : "Unknown error"}`
+      );
+    } finally {
+      setRenamingBusy(false);
+    }
+  }
 
   // ── Compute visible columns (auto-hide empty) ──────────────────────
   const visibleRegularCols = LEAD_COLUMNS.filter((col) =>
@@ -214,7 +243,31 @@ export function LeadTable({
           ))}
           {visibleCustomCols.map((key) => (
             <TableHead key={`cf-${key}`}>
-              <span className="text-xs font-medium">{key}</span>
+              {renamingCol === key ? (
+                <Input
+                  value={renameValue}
+                  onChange={(e) => setRenameValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") commitRename();
+                    if (e.key === "Escape") setRenamingCol(null);
+                  }}
+                  onBlur={commitRename}
+                  disabled={renamingBusy}
+                  className="h-7 text-xs w-36"
+                  autoFocus
+                />
+              ) : (
+                <span
+                  className="text-xs font-medium cursor-pointer select-none"
+                  title="Double-click to rename"
+                  onDoubleClick={() => {
+                    setRenamingCol(key);
+                    setRenameValue(key);
+                  }}
+                >
+                  {key}
+                </span>
+              )}
             </TableHead>
           ))}
           <TableHead className="w-10">

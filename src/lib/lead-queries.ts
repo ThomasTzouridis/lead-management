@@ -216,6 +216,42 @@ export async function fetchCustomFieldKeys(): Promise<string[]> {
   return (data || []).map((row: { key: string }) => row.key);
 }
 
+/** Rename a custom field key across all leads that have it */
+export async function renameCustomField(
+  oldKey: string,
+  newKey: string
+): Promise<number> {
+  if (!oldKey || !newKey || oldKey === newKey) return 0;
+
+  const { data, error } = await supabase
+    .from("leads")
+    .select("id, custom_fields")
+    .not("custom_fields", "is", null);
+
+  if (error) throw new Error(error.message);
+
+  const affected = (data || []).filter(
+    (l) => l.custom_fields && oldKey in (l.custom_fields as Record<string, unknown>)
+  );
+
+  for (let i = 0; i < affected.length; i += 50) {
+    const chunk = affected.slice(i, i + 50);
+    await Promise.all(
+      chunk.map((lead) => {
+        const cf = { ...(lead.custom_fields as Record<string, string>) };
+        cf[newKey] = cf[oldKey];
+        delete cf[oldKey];
+        return supabase
+          .from("leads")
+          .update({ custom_fields: cf })
+          .eq("id", lead.id);
+      })
+    );
+  }
+
+  return affected.length;
+}
+
 /** Fetch all clients */
 export async function fetchClients(): Promise<Client[]> {
   const { data, error } = await supabase
