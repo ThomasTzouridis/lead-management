@@ -78,13 +78,16 @@ export function StepUpload({ state, onUpdate, onNext, onBack }: Props) {
     }
 
     setParsing(true);
-    const allRows: Record<string, string>[] = [];
+    const previewRows: Record<string, string>[] = [];
     let headers: string[] = [];
+    let rowCount = 0;
     let malformedCount = 0;
+    const PREVIEW_LIMIT = 20;
 
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
+      // Stream row-by-row so we never hold the full file in memory.
       step: (result) => {
         if (result.errors.length > 0) {
           malformedCount++;
@@ -93,7 +96,10 @@ export function StepUpload({ state, onUpdate, onNext, onBack }: Props) {
         if (headers.length === 0 && result.meta.fields) {
           headers = result.meta.fields;
         }
-        allRows.push(result.data as Record<string, string>);
+        rowCount++;
+        if (previewRows.length < PREVIEW_LIMIT) {
+          previewRows.push(result.data as Record<string, string>);
+        }
       },
       complete: (results) => {
         // Fallback: capture headers from complete callback if step didn't get them
@@ -103,25 +109,31 @@ export function StepUpload({ state, onUpdate, onNext, onBack }: Props) {
 
         setParsing(false);
 
-        if (allRows.length === 0) {
+        if (rowCount === 0) {
           toast.error("CSV is empty or all rows are malformed");
           return;
         }
 
-        const previewRows = allRows.slice(0, 20);
+        // Preserve existing mapping if the headers are identical to the previous upload
+        // (e.g. user reloaded mid-wizard and re-uploaded the same file).
+        const sameHeaders =
+          state.headers.length === headers.length &&
+          [...state.headers].sort().join("|") === [...headers].sort().join("|");
 
         onUpdate({
           file,
           headers,
           previewRows,
-          allRows,
-          mapping: {}, // reset mapping when new file is uploaded
+          rowCount,
+          mapping: sameHeaders ? state.mapping : {},
         });
 
         if (malformedCount > 0) {
-          toast.warning(`Parsed ${allRows.length.toLocaleString()} rows — ${malformedCount.toLocaleString()} malformed rows skipped`);
+          toast.warning(
+            `Parsed ${rowCount.toLocaleString()} rows — ${malformedCount.toLocaleString()} malformed rows skipped`
+          );
         } else {
-          toast.success(`Parsed ${allRows.length.toLocaleString()} rows`);
+          toast.success(`Parsed ${rowCount.toLocaleString()} rows`);
         }
       },
       error: (err) => {
@@ -159,7 +171,7 @@ export function StepUpload({ state, onUpdate, onNext, onBack }: Props) {
       {hasFile && (
         <div className="space-y-3">
           <p className="text-sm font-medium">
-            {state.allRows.length.toLocaleString()} rows,{" "}
+            {state.rowCount.toLocaleString()} rows,{" "}
             {state.headers.length} columns detected
           </p>
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Papa from "papaparse";
 import { supabase } from "@/lib/supabase";
 import { CUSTOM_FIELD_PREFIX } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
@@ -10,13 +11,32 @@ type Props = {
   state: UploadState;
   onUpdate: (partial: Partial<UploadState>) => void;
   onNext: () => void;
+  onBack?: () => void;
 };
 
-export function StepImport({ state, onUpdate, onNext }: Props) {
+function parseFile(file: File): Promise<Record<string, string>[]> {
+  return new Promise((resolve, reject) => {
+    const rows: Record<string, string>[] = [];
+    Papa.parse<Record<string, string>>(file, {
+      header: true,
+      skipEmptyLines: true,
+      step: (result) => {
+        if (result.errors.length === 0) {
+          rows.push(result.data);
+        }
+      },
+      complete: () => resolve(rows),
+      error: (err) => reject(err),
+    });
+  });
+}
+
+export function StepImport({ state, onUpdate, onNext, onBack }: Props) {
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState("Starting import...");
   const [stats, setStats] = useState({ imported: 0, skippedNoContact: 0, skippedDuplicate: 0, errors: 0 });
   const [failed, setFailed] = useState(false);
+  const [needsReupload, setNeedsReupload] = useState(false);
   const started = useRef(false);
 
   useEffect(() => {
@@ -27,10 +47,36 @@ export function StepImport({ state, onUpdate, onNext }: Props) {
   }, []);
 
   async function runImport() {
-    const { allRows, mapping, clientId, file } = state;
+    const { mapping, clientId, file } = state;
 
-    if (!allRows?.length || !clientId || !mapping) {
+    if (!file) {
+      setStatus(
+        "The CSV file is no longer in memory (likely due to a page reload). Please go back to Step 2 and re-upload the same file — your column mapping will be preserved."
+      );
+      setNeedsReupload(true);
+      setFailed(true);
+      return;
+    }
+
+    if (!clientId || !mapping || Object.keys(mapping).length === 0) {
       setStatus("Error: Missing data. Please go back and re-upload.");
+      setFailed(true);
+      return;
+    }
+
+    setStatus("Reading CSV file...");
+
+    let allRows: Record<string, string>[];
+    try {
+      allRows = await parseFile(file);
+    } catch (err) {
+      setStatus(`Error parsing CSV: ${err instanceof Error ? err.message : String(err)}`);
+      setFailed(true);
+      return;
+    }
+
+    if (allRows.length === 0) {
+      setStatus("Error: CSV appears empty after parsing.");
       setFailed(true);
       return;
     }
@@ -233,9 +279,25 @@ export function StepImport({ state, onUpdate, onNext }: Props) {
       </div>
 
       {failed && (
-        <Button variant="outline" onClick={() => { started.current = false; setFailed(false); runImport(); }}>
-          Retry Import
-        </Button>
+        <div className="flex gap-2">
+          {needsReupload && onBack ? (
+            <Button variant="outline" onClick={onBack}>
+              Back to Step 2
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              onClick={() => {
+                started.current = false;
+                setFailed(false);
+                setNeedsReupload(false);
+                runImport();
+              }}
+            >
+              Retry Import
+            </Button>
+          )}
+        </div>
       )}
     </div>
   );
