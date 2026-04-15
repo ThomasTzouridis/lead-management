@@ -117,7 +117,7 @@ export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-3 items-start">
       {state.previewRows.length > 0 && (
         <div className="border rounded-lg bg-card">
           <div className="px-3 py-2 border-b text-sm font-medium">
