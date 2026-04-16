@@ -511,6 +511,9 @@ export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
                       <SelectValue>{currentLabel}</SelectValue>
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="__create_custom__">
+                        <span className="text-primary font-medium">+ Create custom field</span>
+                      </SelectItem>
                       <SelectItem value="skip">
                         <span className="text-muted-foreground">Skip this column</span>
                       </SelectItem>
@@ -536,9 +539,6 @@ export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
                           ))}
                         </>
                       )}
-                      <SelectItem value="__create_custom__">
-                        <span className="text-primary font-medium">+ Create custom field</span>
-                      </SelectItem>
                     </SelectContent>
                   </Select>
                 )}
