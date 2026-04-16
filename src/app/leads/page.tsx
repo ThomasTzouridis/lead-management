@@ -50,17 +50,15 @@ export default function LeadsPage() {
 
   // ── Derived ──────────────────────────────────────────────────────────
   const customFieldKeys = useMemo(() => {
-    const keys = new Set<string>();
+    // Start with DB keys (already in registry order from fetchCustomFieldKeys)
+    const keys = new Set<string>(dbCustomKeys);
+    // Add any keys from the current page of leads not yet in the set
     for (const lead of leads) {
       if (lead.custom_fields) {
         for (const key of Object.keys(lead.custom_fields)) {
           keys.add(key);
         }
       }
-    }
-    // Include columns from database (all custom fields that exist anywhere)
-    for (const col of dbCustomKeys) {
-      keys.add(col);
     }
     // Include columns added via UI even if no data yet
     for (const col of extraColumns) {
