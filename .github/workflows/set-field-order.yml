@@ -1,7 +1,7 @@
 name: Set Custom Field Order
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: {}
 
 jobs:
   set-order:
