@@ -8,6 +8,11 @@ import { CUSTOM_FIELD_PREFIX } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import type { UploadState } from "@/app/page";
 
+/** Convert "job title (2)" → "job title - 2" for Clay compatibility */
+function normalizeFieldName(name: string): string {
+  return name.replace(/\s*\((\d+)\)$/, " - $1");
+}
+
 type Props = {
   state: UploadState;
   onUpdate: (partial: Partial<UploadState>) => void;
@@ -116,7 +121,7 @@ export function StepImport({ state, onUpdate, onNext, onBack }: Props) {
       for (const csvCol of state.headers) {
         const target = mapping[csvCol];
         if (target && target.startsWith(CUSTOM_FIELD_PREFIX)) {
-          customFieldNames.push(target.slice(CUSTOM_FIELD_PREFIX.length));
+          customFieldNames.push(normalizeFieldName(target.slice(CUSTOM_FIELD_PREFIX.length)));
         }
       }
       if (customFieldNames.length > 0) {
@@ -148,7 +153,7 @@ export function StepImport({ state, onUpdate, onNext, onBack }: Props) {
           if (!val) continue;
 
           if (targetField.startsWith(CUSTOM_FIELD_PREFIX)) {
-            const fieldName = targetField.slice(CUSTOM_FIELD_PREFIX.length);
+            const fieldName = normalizeFieldName(targetField.slice(CUSTOM_FIELD_PREFIX.length));
             customData[fieldName] = val;
           } else if (targetField === "email") {
             lead[targetField] = val.toLowerCase();
