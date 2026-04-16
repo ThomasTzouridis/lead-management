@@ -1,0 +1,25 @@
+name: Query Custom Fields
+
+on:
+  workflow_dispatch:
+
+jobs:
+  query:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get all custom field keys
+        run: |
+          echo "=== Custom Field Keys (from RPC) ==="
+          curl -s \
+            "${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}/rest/v1/rpc/get_custom_field_keys" \
+            -H "apikey: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{}' | jq -r '.[].key'
+
+          echo ""
+          echo "=== Mapping Templates ==="
+          curl -s \
+            "${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}/rest/v1/mapping_templates?select=name,headers,custom_fields" \
+            -H "apikey: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}" | jq .
