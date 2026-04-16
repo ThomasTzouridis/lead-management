@@ -281,14 +281,20 @@ export async function fetchCustomFieldKeys(): Promise<string[]> {
     fetchDbCustomFieldKeys(),
   ]);
 
-  // Start with registry order, then append any DB keys not yet registered
-  const seen = new Set(order);
-  const result = [...order];
-  for (const key of dbKeys) {
-    if (!seen.has(key)) {
+  // Only include keys that actually exist in the database
+  const liveKeys = new Set(dbKeys);
+
+  // Start with registry-ordered keys that still have data
+  const result: string[] = [];
+  for (const key of order) {
+    if (liveKeys.has(key)) {
       result.push(key);
-      seen.add(key);
+      liveKeys.delete(key);
     }
+  }
+  // Append any DB keys not in the registry
+  for (const key of liveKeys) {
+    result.push(key);
   }
 
   return result;
@@ -395,6 +401,36 @@ export async function deleteLeads(ids: string[]): Promise<void> {
     const { error } = await supabase.from("leads").delete().in("id", chunk);
     if (error) throw new Error(error.message);
   }
+
+  // Clean up registry: remove keys that no longer exist in any lead
+  await cleanupOrphanedFieldKeys();
+}
+
+/** Remove custom field keys from the registry that no longer exist in any lead */
+async function cleanupOrphanedFieldKeys(): Promise<void> {
+  const [registryOrder, dbKeys] = await Promise.all([
+    fetchCustomFieldOrder(),
+    fetchDbCustomFieldKeys(),
+  ]);
+
+  if (registryOrder.length === 0) return;
+
+  const liveKeys = new Set(dbKeys);
+  const cleaned = registryOrder.filter((k) => liveKeys.has(k));
+
+  if (cleaned.length === registryOrder.length) return; // nothing to clean
+
+  await supabase
+    .from("mapping_templates")
+    .upsert(
+      {
+        name: FIELD_ORDER_REGISTRY,
+        headers: cleaned,
+        mapping: {},
+        custom_fields: [],
+      },
+      { onConflict: "name" }
+    );
 }
 
 /** Bulk update a regular column for selected leads */
