@@ -91,17 +91,14 @@ export function LeadTable({
     })
   );
 
-  // All known custom field keys: from current page + database + UI-added
-  const customFieldKeys = new Set<string>();
+  // All known custom field keys: start with ordered keys from registry, then extras
+  const customFieldKeys = new Set<string>(allCustomKeys);
   for (const lead of leads) {
     if (lead.custom_fields) {
       for (const key of Object.keys(lead.custom_fields)) {
         customFieldKeys.add(key);
       }
     }
-  }
-  for (const col of allCustomKeys) {
-    customFieldKeys.add(col);
   }
   for (const col of extraColumns) {
     customFieldKeys.add(col);
