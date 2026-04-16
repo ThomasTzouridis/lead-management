@@ -140,7 +140,7 @@ export function LeadFilters({
         {/* Upload batch filter */}
         <div className="min-w-[160px] max-w-[320px]">
           <Select value={batchId} onValueChange={(v) => onBatchChange(v ?? "all")}>
-            <SelectTrigger className="truncate">
+            <SelectTrigger className="w-full overflow-hidden">
               <SelectValue>
                 {batchId === "all"
                   ? "All Uploads"
