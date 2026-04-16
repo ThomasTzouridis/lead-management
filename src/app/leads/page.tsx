@@ -17,6 +17,7 @@ import {
   type Client,
   type ColumnFilter,
   type UploadBatch,
+  type BatchFilter,
 } from "@/lib/lead-queries";
 import { toast } from "sonner";
 
@@ -27,7 +28,7 @@ export default function LeadsPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [clientId, setClientId] = useState("all");
   const [batches, setBatches] = useState<UploadBatch[]>([]);
-  const [batchId, setBatchId] = useState("all");
+  const [batchFilter, setBatchFilter] = useState<BatchFilter>({ mode: "include", ids: [] });
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<ColumnFilter[]>([]);
   const [sortColumn, setSortColumn] = useState("created_at");
@@ -102,7 +103,7 @@ export default function LeadsPage() {
 
     fetchLeads({
       clientId: clientId !== "all" ? clientId : undefined,
-      batchId: batchId !== "all" ? batchId : undefined,
+      batchFilter: batchFilter.ids.length > 0 ? batchFilter : undefined,
       search: search || undefined,
       filters: filters.length > 0 ? filters : undefined,
       customFieldKeys: dbCustomKeys.length > 0 ? dbCustomKeys : undefined,
@@ -126,18 +127,18 @@ export default function LeadsPage() {
     return () => {
       cancelled = true;
     };
-  }, [clientId, batchId, search, filters, sortColumn, sortDir, page, refetchKey, dbCustomKeys]);
+  }, [clientId, batchFilter, search, filters, sortColumn, sortDir, page, refetchKey, dbCustomKeys]);
 
   // ── Reset page on filter/search/sort change ─────────────────────────
   const handleClientChange = useCallback((id: string) => {
     setClientId(id);
-    setBatchId("all");
+    setBatchFilter({ mode: "include", ids: [] });
     setPage(0);
     setSelectedIds(new Set());
   }, []);
 
-  const handleBatchChange = useCallback((id: string) => {
-    setBatchId(id);
+  const handleBatchFilterChange = useCallback((bf: BatchFilter) => {
+    setBatchFilter(bf);
     setPage(0);
     setSelectedIds(new Set());
   }, []);
@@ -182,7 +183,7 @@ export default function LeadsPage() {
     try {
       const ids = await fetchAllFilteredLeadIds({
         clientId: clientId !== "all" ? clientId : undefined,
-        batchId: batchId !== "all" ? batchId : undefined,
+        batchFilter: batchFilter.ids.length > 0 ? batchFilter : undefined,
         search: search || undefined,
         filters: filters.length > 0 ? filters : undefined,
       });
@@ -212,7 +213,7 @@ export default function LeadsPage() {
         <div className="flex items-center gap-2">
           <LeadExport
             clientId={clientId}
-            batchId={batchId}
+            batchFilter={batchFilter}
             search={search}
             filters={filters}
             sortColumn={sortColumn}
@@ -232,8 +233,8 @@ export default function LeadsPage() {
         onFiltersChange={handleFiltersChange}
         customFieldKeys={customFieldKeys}
         batches={batches}
-        batchId={batchId}
-        onBatchChange={handleBatchChange}
+        batchFilter={batchFilter}
+        onBatchFilterChange={handleBatchFilterChange}
       />
 
       {/* Bulk actions */}

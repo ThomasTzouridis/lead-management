@@ -51,9 +51,15 @@ export type UploadBatch = {
   created_at: string;
 };
 
+export type BatchFilter = {
+  mode: "include" | "exclude";
+  ids: string[];
+};
+
 export type FetchLeadsParams = {
   clientId?: string;
   batchId?: string;
+  batchFilter?: BatchFilter;
   search?: string;
   filters?: ColumnFilter[];
   customFieldKeys?: string[];
@@ -128,9 +134,9 @@ export async function registerCustomFieldOrder(newFields: string[]): Promise<voi
 // ---------------------------------------------------------------------------
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function applyFilters<T extends { eq: any; or: any; ilike: any; filter: any }>(
+function applyFilters<T extends { eq: any; or: any; ilike: any; filter: any; in: any; not: any }>(
   query: T,
-  params: Pick<FetchLeadsParams, "clientId" | "batchId" | "search" | "filters" | "customFieldKeys">
+  params: Pick<FetchLeadsParams, "clientId" | "batchId" | "batchFilter" | "search" | "filters" | "customFieldKeys">
 ): T {
   let q = query;
 
@@ -138,7 +144,13 @@ function applyFilters<T extends { eq: any; or: any; ilike: any; filter: any }>(
     q = q.eq("client_id", params.clientId);
   }
 
-  if (params.batchId) {
+  if (params.batchFilter && params.batchFilter.ids.length > 0) {
+    if (params.batchFilter.mode === "include") {
+      q = q.in("upload_batch_id", params.batchFilter.ids);
+    } else {
+      q = q.not("upload_batch_id", "in", `(${params.batchFilter.ids.join(",")})`);
+    }
+  } else if (params.batchId) {
     q = q.eq("upload_batch_id", params.batchId);
   }
 
@@ -207,7 +219,7 @@ export async function fetchLeads(params: FetchLeadsParams) {
 
 /** Fetch ALL lead IDs matching filters (for "select all filtered") */
 export async function fetchAllFilteredLeadIds(
-  params: Pick<FetchLeadsParams, "clientId" | "batchId" | "search" | "filters" | "customFieldKeys">
+  params: Pick<FetchLeadsParams, "clientId" | "batchId" | "batchFilter" | "search" | "filters" | "customFieldKeys">
 ): Promise<string[]> {
   const ids: string[] = [];
   const batchSize = 1000;
@@ -233,7 +245,7 @@ export async function fetchAllFilteredLeadIds(
 
 /** Fetch ALL leads matching filters (for CSV export) */
 export async function fetchAllFilteredLeads(
-  params: Pick<FetchLeadsParams, "clientId" | "batchId" | "search" | "filters" | "customFieldKeys" | "sortColumn" | "sortDir">
+  params: Pick<FetchLeadsParams, "clientId" | "batchId" | "batchFilter" | "search" | "filters" | "customFieldKeys" | "sortColumn" | "sortDir">
 ): Promise<Lead[]> {
   const leads: Lead[] = [];
   const batchSize = 1000;

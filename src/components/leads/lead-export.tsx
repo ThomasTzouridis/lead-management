@@ -8,12 +8,13 @@ import {
   LEAD_COLUMNS,
   type Lead,
   type ColumnFilter,
+  type BatchFilter,
 } from "@/lib/lead-queries";
 import { toast } from "sonner";
 
 type Props = {
   clientId?: string;
-  batchId?: string;
+  batchFilter?: BatchFilter;
   search?: string;
   filters?: ColumnFilter[];
   sortColumn?: string;
@@ -30,7 +31,7 @@ function escapeCSV(val: unknown): string {
     : str;
 }
 
-export function LeadExport({ clientId, batchId, search, filters, sortColumn, sortDir }: Props) {
+export function LeadExport({ clientId, batchFilter, search, filters, sortColumn, sortDir }: Props) {
   const [exporting, setExporting] = useState(false);
 
   async function handleExport() {
@@ -38,7 +39,7 @@ export function LeadExport({ clientId, batchId, search, filters, sortColumn, sor
     try {
       const leads = await fetchAllFilteredLeads({
         clientId: clientId && clientId !== "all" ? clientId : undefined,
-        batchId: batchId && batchId !== "all" ? batchId : undefined,
+        batchFilter: batchFilter && batchFilter.ids.length > 0 ? batchFilter : undefined,
         search,
         filters,
         sortColumn,

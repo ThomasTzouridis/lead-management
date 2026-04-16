@@ -20,7 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, Plus, X } from "lucide-react";
-import { LEAD_COLUMNS, type Client, type ColumnFilter, type UploadBatch } from "@/lib/lead-queries";
+import { LEAD_COLUMNS, type Client, type ColumnFilter, type UploadBatch, type BatchFilter } from "@/lib/lead-queries";
 
 type Props = {
   clients: Client[];
@@ -32,8 +32,8 @@ type Props = {
   onFiltersChange: (f: ColumnFilter[]) => void;
   customFieldKeys: string[];
   batches: UploadBatch[];
-  batchId: string;
-  onBatchChange: (id: string) => void;
+  batchFilter: BatchFilter;
+  onBatchFilterChange: (bf: BatchFilter) => void;
 };
 
 export function LeadFilters({
@@ -46,8 +46,8 @@ export function LeadFilters({
   onFiltersChange,
   customFieldKeys,
   batches,
-  batchId,
-  onBatchChange,
+  batchFilter,
+  onBatchFilterChange,
 }: Props) {
   const [localSearch, setLocalSearch] = useState(search);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -137,29 +137,87 @@ export function LeadFilters({
           </Select>
         </div>
 
-        {/* Upload batch filter */}
-        <div className="min-w-[160px] max-w-[320px]">
-          <Select value={batchId} onValueChange={(v) => onBatchChange(v ?? "all")}>
-            <SelectTrigger className="w-full overflow-hidden">
-              <SelectValue>
-                {batchId === "all"
-                  ? "All Uploads"
-                  : (() => {
-                      const b = batches.find((x) => x.id === batchId);
-                      return b ? `#${b.upload_number} — ${b.filename}` : "All Uploads";
-                    })()}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Uploads</SelectItem>
-              {batches.map((b) => (
-                <SelectItem key={b.id} value={b.id}>
-                  #{b.upload_number} — {b.filename}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {/* Upload batch filter (multi-select with include/exclude) */}
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            className="inline-flex items-center gap-1.5 rounded-lg border border-input px-2.5 h-8 text-sm whitespace-nowrap min-w-[140px] max-w-[320px] overflow-hidden"
+          >
+            <span className="truncate">
+              {batchFilter.ids.length === 0
+                ? "All Uploads"
+                : `${batchFilter.mode === "exclude" ? "Excluding" : ""} ${batchFilter.ids.length} upload${batchFilter.ids.length !== 1 ? "s" : ""}`}
+            </span>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-[340px] max-h-[400px] overflow-y-auto" align="start">
+            {/* Mode toggle */}
+            {batchFilter.ids.length > 0 && (
+              <>
+                <div className="flex items-center gap-1 px-2 py-1.5">
+                  <button
+                    className={`px-2 py-0.5 text-xs rounded ${batchFilter.mode === "include" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
+                    onClick={() => onBatchFilterChange({ ...batchFilter, mode: "include" })}
+                  >
+                    Include
+                  </button>
+                  <button
+                    className={`px-2 py-0.5 text-xs rounded ${batchFilter.mode === "exclude" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
+                    onClick={() => onBatchFilterChange({ ...batchFilter, mode: "exclude" })}
+                  >
+                    Exclude
+                  </button>
+                  <button
+                    className="ml-auto text-xs text-muted-foreground hover:text-foreground"
+                    onClick={() => onBatchFilterChange({ mode: "include", ids: [] })}
+                  >
+                    Clear
+                  </button>
+                </div>
+                <div className="border-b my-1" />
+              </>
+            )}
+            {/* Select all / Deselect all */}
+            <div className="flex items-center gap-2 px-2 py-1.5">
+              <button
+                className="text-xs text-primary hover:underline"
+                onClick={() => onBatchFilterChange({ ...batchFilter, ids: batches.map((b) => b.id) })}
+              >
+                Select all
+              </button>
+              {batchFilter.ids.length > 0 && (
+                <button
+                  className="text-xs text-muted-foreground hover:underline"
+                  onClick={() => onBatchFilterChange({ mode: "include", ids: [] })}
+                >
+                  Deselect all
+                </button>
+              )}
+            </div>
+            <div className="border-b my-1" />
+            {/* Batch list with checkboxes */}
+            {batches.map((b) => {
+              const checked = batchFilter.ids.includes(b.id);
+              return (
+                <label
+                  key={b.id}
+                  className="flex items-center gap-2 px-2 py-1.5 text-sm cursor-pointer hover:bg-accent rounded-sm"
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => {
+                      const next = checked
+                        ? batchFilter.ids.filter((id) => id !== b.id)
+                        : [...batchFilter.ids, b.id];
+                      onBatchFilterChange({ ...batchFilter, ids: next });
+                    }}
+                    className="rounded"
+                  />
+                  <span className="truncate">#{b.upload_number} — {b.filename}</span>
+                </label>
+              );
+            })}
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         {/* Search */}
         <div className="relative flex-1 min-w-[200px] max-w-[400px]">
