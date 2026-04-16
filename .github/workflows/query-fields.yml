@@ -4,22 +4,81 @@ on:
   workflow_dispatch:
 
 jobs:
-  query:
+  set-order:
     runs-on: ubuntu-latest
     steps:
-      - name: Get all custom field keys
+      - name: Upsert field order registry
         run: |
-          echo "=== Custom Field Keys (from RPC) ==="
-          curl -s \
-            "${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}/rest/v1/rpc/get_custom_field_keys" \
+          PAYLOAD=$(cat <<'JSON'
+          {
+            "name": "__field_order__",
+            "headers": [
+              "job title",
+              "company",
+              "corporate linkedin url",
+              "corporate website",
+              "linkedin employees",
+              "linkedin industry",
+              "linkedin company location",
+              "linkedin company employee count",
+              "job title (2)",
+              "company (2)",
+              "corporate linkedin url (2)",
+              "corporate website (2)",
+              "linkedin employees (2)",
+              "linkedin industry (2)",
+              "linkedin company location (2)",
+              "linkedin company employee count (2)",
+              "job title (3)",
+              "company (3)",
+              "corporate linkedin url (3)",
+              "corporate website (3)",
+              "linkedin employees (3)",
+              "linkedin industry (3)",
+              "linkedin company location (3)",
+              "linkedin company employee count (3)",
+              "job title (4)",
+              "company (4)",
+              "corporate linkedin url (4)",
+              "corporate website (4)",
+              "linkedin employees (4)",
+              "linkedin industry (4)",
+              "linkedin company location (4)",
+              "linkedin company employee count (4)",
+              "number of connections"
+            ],
+            "mapping": {},
+            "custom_fields": []
+          }
+JSON
+          )
+
+          echo "Upserting __field_order__ registry..."
+          RESPONSE=$(curl -s -w "\n%{http_code}" \
+            "${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}/rest/v1/mapping_templates?on_conflict=name" \
             -H "apikey: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}" \
             -H "Authorization: Bearer ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}" \
             -H "Content-Type: application/json" \
-            -d '{}' | jq -r '.[].key'
+            -H "Prefer: resolution=merge-duplicates" \
+            -X POST \
+            -d "$PAYLOAD")
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          echo "HTTP Status: $HTTP_CODE"
+          echo "Response: $BODY"
+
+          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+            echo "Field order registry set successfully!"
+          else
+            echo "ERROR: Failed to set field order"
+            exit 1
+          fi
 
           echo ""
-          echo "=== Mapping Templates ==="
+          echo "=== Verifying ==="
           curl -s \
-            "${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}/rest/v1/mapping_templates?select=name,headers,custom_fields" \
+            "${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}/rest/v1/mapping_templates?name=eq.__field_order__&select=name,headers" \
             -H "apikey: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}" \
             -H "Authorization: Bearer ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}" | jq .
