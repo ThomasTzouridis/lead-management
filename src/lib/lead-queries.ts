@@ -81,6 +81,49 @@ export const LEAD_COLUMNS = TARGET_FIELDS.map((f) => ({
 }));
 
 // ---------------------------------------------------------------------------
+// Custom field order registry — stored as a special mapping_templates row
+// ---------------------------------------------------------------------------
+
+const FIELD_ORDER_REGISTRY = "__field_order__";
+
+/** Fetch the ordered list of custom field names from the registry */
+async function fetchCustomFieldOrder(): Promise<string[]> {
+  const { data, error } = await supabase
+    .from("mapping_templates")
+    .select("headers")
+    .eq("name", FIELD_ORDER_REGISTRY)
+    .single();
+
+  if (error || !data) return [];
+  return data.headers || [];
+}
+
+/** Register custom field names in order (appends new ones, preserves existing order) */
+export async function registerCustomFieldOrder(newFields: string[]): Promise<void> {
+  if (newFields.length === 0) return;
+
+  const current = await fetchCustomFieldOrder();
+  const existing = new Set(current);
+  const toAdd = newFields.filter((f) => !existing.has(f));
+
+  if (toAdd.length === 0) return;
+
+  const updated = [...current, ...toAdd];
+
+  await supabase
+    .from("mapping_templates")
+    .upsert(
+      {
+        name: FIELD_ORDER_REGISTRY,
+        headers: updated,
+        mapping: {},
+        custom_fields: [],
+      },
+      { onConflict: "name" }
+    );
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -218,12 +261,32 @@ export async function fetchAllFilteredLeads(
   return leads;
 }
 
-/** Fetch all distinct custom field keys from the database */
+/** Fetch all distinct custom field keys from the database, ordered by the registry */
 export async function fetchCustomFieldKeys(): Promise<string[]> {
+  // Fetch registry order and all DB keys in parallel
+  const [order, dbKeys] = await Promise.all([
+    fetchCustomFieldOrder(),
+    fetchDbCustomFieldKeys(),
+  ]);
+
+  // Start with registry order, then append any DB keys not yet registered
+  const seen = new Set(order);
+  const result = [...order];
+  for (const key of dbKeys) {
+    if (!seen.has(key)) {
+      result.push(key);
+      seen.add(key);
+    }
+  }
+
+  return result;
+}
+
+/** Raw DB query for all distinct custom field keys (unordered) */
+async function fetchDbCustomFieldKeys(): Promise<string[]> {
   const { data, error } = await supabase.rpc("get_custom_field_keys");
 
   if (error) {
-    // RPC not available — fall back to scanning current leads
     if (error.code === "42883" || error.message.includes("does not exist")) {
       return [];
     }
@@ -264,6 +327,24 @@ export async function renameCustomField(
           .eq("id", lead.id);
       })
     );
+  }
+
+  // Also rename in the field order registry
+  const order = await fetchCustomFieldOrder();
+  const idx = order.indexOf(oldKey);
+  if (idx !== -1) {
+    order[idx] = newKey;
+    await supabase
+      .from("mapping_templates")
+      .upsert(
+        {
+          name: FIELD_ORDER_REGISTRY,
+          headers: order,
+          mapping: {},
+          custom_fields: [],
+        },
+        { onConflict: "name" }
+      );
   }
 
   return affected.length;
@@ -362,11 +443,12 @@ export type MappingTemplate = {
   updated_at: string;
 };
 
-/** Fetch all mapping templates, ordered by name */
+/** Fetch all mapping templates, ordered by name (excludes internal registry) */
 export async function fetchMappingTemplates(): Promise<MappingTemplate[]> {
   const { data, error } = await supabase
     .from("mapping_templates")
     .select("*")
+    .neq("name", FIELD_ORDER_REGISTRY)
     .order("name", { ascending: true });
   if (error) throw new Error(error.message);
   return (data || []) as MappingTemplate[];

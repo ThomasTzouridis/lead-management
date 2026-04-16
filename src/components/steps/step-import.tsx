@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Papa from "papaparse";
 import { supabase } from "@/lib/supabase";
+import { registerCustomFieldOrder } from "@/lib/lead-queries";
 import { CUSTOM_FIELD_PREFIX } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import type { UploadState } from "@/app/page";
@@ -108,6 +109,18 @@ export function StepImport({ state, onUpdate, onNext, onBack }: Props) {
         if (target !== "skip") {
           reverseMap[target] = csvCol;
         }
+      }
+
+      // Register custom field order (CSV column order, appends new ones)
+      const customFieldNames: string[] = [];
+      for (const csvCol of state.headers) {
+        const target = mapping[csvCol];
+        if (target && target.startsWith(CUSTOM_FIELD_PREFIX)) {
+          customFieldNames.push(target.slice(CUSTOM_FIELD_PREFIX.length));
+        }
+      }
+      if (customFieldNames.length > 0) {
+        await registerCustomFieldOrder(customFieldNames);
       }
 
       let imported = 0;
