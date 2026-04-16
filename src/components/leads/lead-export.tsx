@@ -74,7 +74,7 @@ export function LeadExport({ clientId, batchId, search, filters, sortColumn, sor
       const customKeysArr = Array.from(customKeys);
       const headers = [
         ...visibleRegular.map((c) => c.label),
-        ...customKeysArr,
+        ...customKeysArr.map((k) => k.replace(/\s*\((\d+)\)$/, " - $1")),
       ];
 
       const csvRows = [headers.map(escapeCSV).join(",")];
