@@ -349,7 +349,7 @@ export function LeadTable({
               return (
                 <TableCell
                   key={col.key}
-                  className="max-w-[200px] truncate cursor-pointer"
+                  className="max-w-[200px] truncate cursor-pointer relative"
                   onClick={() => {
                     if (!isEditing) startEdit(lead.id, col.key, display);
                   }}
@@ -363,7 +363,7 @@ export function LeadTable({
                         if (e.key === "Escape") cancelEdit();
                       }}
                       onBlur={saveEdit}
-                      className="h-7 text-xs"
+                      className="absolute left-1 top-1/2 -translate-y-1/2 z-20 h-8 text-sm w-[360px] bg-background border-primary shadow-lg"
                       autoFocus
                     />
                   ) : (
@@ -385,7 +385,7 @@ export function LeadTable({
               return (
                 <TableCell
                   key={`cf-${key}`}
-                  className="max-w-[200px] truncate cursor-pointer"
+                  className="max-w-[200px] truncate cursor-pointer relative"
                   onClick={() => {
                     if (!isEditing) startEdit(lead.id, `cf:${key}`, val);
                   }}
@@ -399,7 +399,7 @@ export function LeadTable({
                         if (e.key === "Escape") cancelEdit();
                       }}
                       onBlur={saveEdit}
-                      className="h-7 text-xs"
+                      className="absolute left-1 top-1/2 -translate-y-1/2 z-20 h-8 text-sm w-[360px] bg-background border-primary shadow-lg"
                       autoFocus
                     />
                   ) : (

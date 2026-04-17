@@ -85,11 +85,11 @@ export function LeadBulkFill({
   }
 
   return (
-    <div className="flex items-center gap-2 p-3 rounded-lg border bg-card">
+    <div className="flex items-center gap-2 p-3 rounded-lg border bg-card flex-wrap">
       <span className="text-sm text-muted-foreground whitespace-nowrap">
         Set column
       </span>
-      <div className="w-[200px]">
+      <div className="w-[220px] shrink-0">
         <Select value={column} onValueChange={(v) => setColumn(v ?? "")}>
           <SelectTrigger>
             <SelectValue placeholder="Pick column..." />
@@ -111,7 +111,8 @@ export function LeadBulkFill({
           if (e.key === "Enter") handleApply();
         }}
         placeholder="Value for all selected..."
-        className="w-[200px]"
+        className="flex-1 min-w-[320px]"
+        autoFocus
       />
       <Button size="sm" onClick={handleApply} disabled={saving}>
         {saving ? "Saving..." : `Apply to ${selectedCount.toLocaleString()}`}
