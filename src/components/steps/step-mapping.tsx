@@ -578,6 +578,70 @@ export function StepMapping({ state, onUpdate, onNext, onBack }: Props) {
       </div>
       </div>
 
+      {/* Dedupe mode — must be picked before import. Defaults to "skip" (current behaviour). */}
+      <div className="space-y-2">
+        <div>
+          <h3 className="text-sm font-semibold">If a lead already exists for this client…</h3>
+          <p className="text-xs text-muted-foreground">
+            Matched by email or LinkedIn URL. Pick one.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => onUpdate({ dedupeMode: "skip" })}
+            className={`text-left rounded-lg border p-4 transition-colors ${
+              state.dedupeMode === "skip"
+                ? "border-primary bg-primary/10 ring-2 ring-primary"
+                : "border-input bg-card hover:border-muted-foreground"
+            }`}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <div
+                className={`h-4 w-4 rounded-full border-2 flex items-center justify-center ${
+                  state.dedupeMode === "skip" ? "border-primary" : "border-muted-foreground"
+                }`}
+              >
+                {state.dedupeMode === "skip" && (
+                  <div className="h-2 w-2 rounded-full bg-primary" />
+                )}
+              </div>
+              <span className="font-medium text-sm">Skip the new row</span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Keep the existing lead exactly as it is. The new row in this CSV is dropped.
+            </p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onUpdate({ dedupeMode: "replace" })}
+            className={`text-left rounded-lg border p-4 transition-colors ${
+              state.dedupeMode === "replace"
+                ? "border-primary bg-primary/10 ring-2 ring-primary"
+                : "border-input bg-card hover:border-muted-foreground"
+            }`}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <div
+                className={`h-4 w-4 rounded-full border-2 flex items-center justify-center ${
+                  state.dedupeMode === "replace" ? "border-primary" : "border-muted-foreground"
+                }`}
+              >
+                {state.dedupeMode === "replace" && (
+                  <div className="h-2 w-2 rounded-full bg-primary" />
+                )}
+              </div>
+              <span className="font-medium text-sm">Replace with the new row</span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Wipe the existing lead completely (every column, including custom fields) and
+              insert the new row in its place. The lead is reassigned to this upload.
+            </p>
+          </button>
+        </div>
+      </div>
+
       <div className="flex justify-between">
         <Button variant="outline" onClick={onBack}>
           Back

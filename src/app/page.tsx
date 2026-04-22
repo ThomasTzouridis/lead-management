@@ -12,6 +12,8 @@ import {
   savePersistedUpload,
 } from "@/lib/upload-persistence";
 
+export type DedupeMode = "skip" | "replace";
+
 export type UploadState = {
   clientId: string;
   clientName: string;
@@ -22,11 +24,14 @@ export type UploadState = {
   mapping: Record<string, string>; // csvColumn → targetField
   customFields: { value: string; label: string }[]; // user-created fields for this session
   reviewedHeaders: string[]; // headers the user (or an applied template) has marked as reviewed
+  dedupeMode: DedupeMode;
   results: {
     total: number;
     imported: number;
     skippedNoContact: number;
     skippedDuplicate: number;
+    replaced: number;
+    dedupeMode: DedupeMode;
     newLeads: Record<string, unknown>[];
     batchId: string;
     uploadNumber: number | null;
@@ -44,6 +49,7 @@ function createInitialState(): UploadState {
     mapping: {},
     customFields: [],
     reviewedHeaders: [],
+    dedupeMode: "skip",
     results: null,
   };
 }

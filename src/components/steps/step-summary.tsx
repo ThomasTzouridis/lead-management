@@ -81,7 +81,9 @@ export function StepSummary({ state, onReset }: Props) {
           <p className="text-3xl font-bold text-green-600">
             {r.imported.toLocaleString()}
           </p>
-          <p className="text-sm text-muted-foreground">Imported</p>
+          <p className="text-sm text-muted-foreground">
+            {r.dedupeMode === "replace" ? "Imported (incl. replaced)" : "Imported"}
+          </p>
         </div>
         <div className="p-4 rounded-lg bg-card border text-center">
           <p className="text-3xl font-bold text-yellow-600">
@@ -89,12 +91,23 @@ export function StepSummary({ state, onReset }: Props) {
           </p>
           <p className="text-sm text-muted-foreground">Skipped (No Contact)</p>
         </div>
-        <div className="p-4 rounded-lg bg-card border text-center">
-          <p className="text-3xl font-bold text-red-600">
-            {r.skippedDuplicate.toLocaleString()}
-          </p>
-          <p className="text-sm text-muted-foreground">Skipped (Duplicate)</p>
-        </div>
+        {r.dedupeMode === "replace" ? (
+          <div className="p-4 rounded-lg bg-card border text-center">
+            <p className="text-3xl font-bold text-blue-500">
+              {(r.replaced ?? 0).toLocaleString()}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Existing leads replaced
+            </p>
+          </div>
+        ) : (
+          <div className="p-4 rounded-lg bg-card border text-center">
+            <p className="text-3xl font-bold text-red-600">
+              {r.skippedDuplicate.toLocaleString()}
+            </p>
+            <p className="text-sm text-muted-foreground">Skipped (Duplicate)</p>
+          </div>
+        )}
       </div>
 
       <div className="flex gap-3">

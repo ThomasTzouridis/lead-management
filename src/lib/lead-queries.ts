@@ -48,6 +48,7 @@ export type UploadBatch = {
   imported_rows: number;
   skipped_no_contact: number;
   skipped_duplicate: number;
+  replaced_rows?: number;
   created_at: string;
 };
 

@@ -6,7 +6,7 @@ CREATE TABLE clients (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT N
 
 -- 2. Upload batches
 CREATE SEQUENCE IF NOT EXISTS upload_batch_seq;
-CREATE TABLE upload_batches (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE, filename TEXT NOT NULL, upload_number BIGINT NOT NULL DEFAULT nextval('upload_batch_seq'), total_rows INT NOT NULL DEFAULT 0, imported_rows INT NOT NULL DEFAULT 0, skipped_no_contact INT NOT NULL DEFAULT 0, skipped_duplicate INT NOT NULL DEFAULT 0, created_at TIMESTAMPTZ NOT NULL DEFAULT now());
+CREATE TABLE upload_batches (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE, filename TEXT NOT NULL, upload_number BIGINT NOT NULL DEFAULT nextval('upload_batch_seq'), total_rows INT NOT NULL DEFAULT 0, imported_rows INT NOT NULL DEFAULT 0, skipped_no_contact INT NOT NULL DEFAULT 0, skipped_duplicate INT NOT NULL DEFAULT 0, replaced_rows INT NOT NULL DEFAULT 0, created_at TIMESTAMPTZ NOT NULL DEFAULT now());
 CREATE UNIQUE INDEX IF NOT EXISTS idx_batches_upload_number ON upload_batches(upload_number);
 
 -- 3. Leads
