@@ -406,11 +406,12 @@ export async function fetchListValues(clientId?: string): Promise<string[]> {
     p_client_id: clientId ?? null,
   });
 
+  // Fall back whenever the RPC is unavailable — covers the "migration 003
+  // hasn't been run yet" path. PostgREST reports this as PGRST202
+  // ("Could not find the function ... in the schema cache") and Postgres
+  // itself reports undefined_function as 42883.
   if (error) {
-    if (error.code === "42883" || error.message.includes("does not exist")) {
-      return fetchListValuesFallback(clientId);
-    }
-    throw new Error(error.message);
+    return fetchListValuesFallback(clientId);
   }
 
   return (data || [])
