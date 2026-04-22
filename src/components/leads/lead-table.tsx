@@ -13,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ArrowUpDown, ArrowUp, ArrowDown, Plus } from "lucide-react";
-import { LEAD_COLUMNS, renameCustomField, type Lead, type UploadBatch } from "@/lib/lead-queries";
+import { LEAD_COLUMNS, LIST_FIELD_KEY, renameCustomField, type Lead, type UploadBatch } from "@/lib/lead-queries";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 
@@ -106,8 +106,11 @@ export function LeadTable({
 
   // Show custom columns that exist in the database or were just added
   // (auto-hide only applies to regular columns — custom columns always show
-  //  because they were intentionally created)
-  const visibleCustomCols = Array.from(customFieldKeys);
+  //  because they were intentionally created).
+  // Exclude LIST_FIELD_KEY — it's promoted to a fixed 2nd column above.
+  const visibleCustomCols = Array.from(customFieldKeys).filter(
+    (k) => k !== LIST_FIELD_KEY
+  );
 
   // ── Selection ──────────────────────────────────────────────────────
   const allOnPageSelected =
@@ -233,6 +236,9 @@ export function LeadTable({
           <TableHead>
             <span className="text-xs font-medium">Upload</span>
           </TableHead>
+          <TableHead>
+            <span className="text-xs font-medium">List</span>
+          </TableHead>
           {visibleRegularCols.map((col) => (
             <TableHead key={col.key}>
               <button
@@ -339,6 +345,40 @@ export function LeadTable({
                 );
               })()}
             </TableCell>
+            {(() => {
+              const val = lead.custom_fields?.[LIST_FIELD_KEY] || "";
+              const isEditing =
+                editingCell?.leadId === lead.id &&
+                editingCell?.field === `cf:${LIST_FIELD_KEY}`;
+              return (
+                <TableCell
+                  className="max-w-[200px] truncate cursor-pointer relative"
+                  onClick={() => {
+                    if (!isEditing) startEdit(lead.id, `cf:${LIST_FIELD_KEY}`, val);
+                  }}
+                >
+                  {isEditing ? (
+                    <Input
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") saveEdit();
+                        if (e.key === "Escape") cancelEdit();
+                      }}
+                      onBlur={saveEdit}
+                      className="absolute left-1 top-1/2 -translate-y-1/2 z-20 h-8 text-sm w-[360px] bg-background border-primary shadow-lg"
+                      autoFocus
+                    />
+                  ) : (
+                    <span className="text-xs">
+                      {val || (
+                        <span className="text-muted-foreground">&mdash;</span>
+                      )}
+                    </span>
+                  )}
+                </TableCell>
+              );
+            })()}
             {visibleRegularCols.map((col) => {
               const val = lead[col.key as keyof Lead];
               const display = val != null && val !== "" ? String(val) : "";

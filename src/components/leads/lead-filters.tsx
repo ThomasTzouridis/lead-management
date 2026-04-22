@@ -20,7 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, Plus, X } from "lucide-react";
-import { LEAD_COLUMNS, type Client, type ColumnFilter, type UploadBatch, type BatchFilter } from "@/lib/lead-queries";
+import { LEAD_COLUMNS, type Client, type ColumnFilter, type UploadBatch, type BatchFilter, type ListFilter } from "@/lib/lead-queries";
 
 type Props = {
   clients: Client[];
@@ -34,6 +34,9 @@ type Props = {
   batches: UploadBatch[];
   batchFilter: BatchFilter;
   onBatchFilterChange: (bf: BatchFilter) => void;
+  listValues: string[];
+  listFilter: ListFilter;
+  onListFilterChange: (lf: ListFilter) => void;
 };
 
 export function LeadFilters({
@@ -48,6 +51,9 @@ export function LeadFilters({
   batches,
   batchFilter,
   onBatchFilterChange,
+  listValues,
+  listFilter,
+  onListFilterChange,
 }: Props) {
   const [localSearch, setLocalSearch] = useState(search);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -136,6 +142,70 @@ export function LeadFilters({
             </SelectContent>
           </Select>
         </div>
+
+        {/* List filter (multi-select) — values auto-detected from custom_fields->>List */}
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            className="inline-flex items-center gap-1.5 rounded-lg border border-input px-2.5 h-8 text-sm whitespace-nowrap min-w-[140px] max-w-[320px] overflow-hidden"
+          >
+            <span className="truncate">
+              {listFilter.values.length === 0
+                ? "All Lists"
+                : listFilter.values.length === 1
+                ? listFilter.values[0]
+                : `${listFilter.values.length} lists`}
+            </span>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-[260px] max-h-[400px] overflow-y-auto" align="start">
+            {listValues.length === 0 ? (
+              <div className="px-2 py-3 text-xs text-muted-foreground">
+                No list values found
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center gap-2 px-2 py-1.5">
+                  <button
+                    className="text-xs text-primary hover:underline"
+                    onClick={() => onListFilterChange({ values: [...listValues] })}
+                  >
+                    Select all
+                  </button>
+                  {listFilter.values.length > 0 && (
+                    <button
+                      className="text-xs text-muted-foreground hover:underline"
+                      onClick={() => onListFilterChange({ values: [] })}
+                    >
+                      Deselect all
+                    </button>
+                  )}
+                </div>
+                <div className="border-b my-1" />
+                {listValues.map((v) => {
+                  const checked = listFilter.values.includes(v);
+                  return (
+                    <label
+                      key={v}
+                      className="flex items-center gap-2 px-2 py-1.5 text-sm cursor-pointer hover:bg-accent rounded-sm"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => {
+                          const next = checked
+                            ? listFilter.values.filter((x) => x !== v)
+                            : [...listFilter.values, v];
+                          onListFilterChange({ values: next });
+                        }}
+                        className="rounded"
+                      />
+                      <span className="truncate">{v}</span>
+                    </label>
+                  );
+                })}
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         {/* Upload batch filter (multi-select with include/exclude) */}
         <DropdownMenu>

@@ -13,11 +13,13 @@ import {
   fetchCustomFieldKeys,
   fetchAllFilteredLeadIds,
   fetchUploadBatches,
+  fetchListValues,
   type Lead,
   type Client,
   type ColumnFilter,
   type UploadBatch,
   type BatchFilter,
+  type ListFilter,
 } from "@/lib/lead-queries";
 import { toast } from "sonner";
 
@@ -29,6 +31,8 @@ export default function LeadsPage() {
   const [clientId, setClientId] = useState("all");
   const [batches, setBatches] = useState<UploadBatch[]>([]);
   const [batchFilter, setBatchFilter] = useState<BatchFilter>({ mode: "include", ids: [] });
+  const [listValues, setListValues] = useState<string[]>([]);
+  const [listFilter, setListFilter] = useState<ListFilter>({ values: [] });
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<ColumnFilter[]>([]);
   const [sortColumn, setSortColumn] = useState("created_at");
@@ -79,12 +83,19 @@ export default function LeadsPage() {
     fetchUploadBatches()
       .then(setBatches)
       .catch(() => {});
+    fetchListValues()
+      .then(setListValues)
+      .catch(() => {});
   }, []);
 
-  // Reload batches when client filter changes (shows only that client's uploads)
+  // Reload batches + list values when client filter changes (shows only that client's data)
   useEffect(() => {
-    fetchUploadBatches(clientId !== "all" ? clientId : undefined)
+    const scoped = clientId !== "all" ? clientId : undefined;
+    fetchUploadBatches(scoped)
       .then(setBatches)
+      .catch(() => {});
+    fetchListValues(scoped)
+      .then(setListValues)
       .catch(() => {});
   }, [clientId, refetchKey]);
 
@@ -104,6 +115,7 @@ export default function LeadsPage() {
     fetchLeads({
       clientId: clientId !== "all" ? clientId : undefined,
       batchFilter: batchFilter.ids.length > 0 ? batchFilter : undefined,
+      listFilter: listFilter.values.length > 0 ? listFilter : undefined,
       search: search || undefined,
       filters: filters.length > 0 ? filters : undefined,
       customFieldKeys: dbCustomKeys.length > 0 ? dbCustomKeys : undefined,
@@ -127,18 +139,25 @@ export default function LeadsPage() {
     return () => {
       cancelled = true;
     };
-  }, [clientId, batchFilter, search, filters, sortColumn, sortDir, page, refetchKey, dbCustomKeys]);
+  }, [clientId, batchFilter, listFilter, search, filters, sortColumn, sortDir, page, refetchKey, dbCustomKeys]);
 
   // ── Reset page on filter/search/sort change ─────────────────────────
   const handleClientChange = useCallback((id: string) => {
     setClientId(id);
     setBatchFilter({ mode: "include", ids: [] });
+    setListFilter({ values: [] });
     setPage(0);
     setSelectedIds(new Set());
   }, []);
 
   const handleBatchFilterChange = useCallback((bf: BatchFilter) => {
     setBatchFilter(bf);
+    setPage(0);
+    setSelectedIds(new Set());
+  }, []);
+
+  const handleListFilterChange = useCallback((lf: ListFilter) => {
+    setListFilter(lf);
     setPage(0);
     setSelectedIds(new Set());
   }, []);
@@ -184,6 +203,7 @@ export default function LeadsPage() {
       const ids = await fetchAllFilteredLeadIds({
         clientId: clientId !== "all" ? clientId : undefined,
         batchFilter: batchFilter.ids.length > 0 ? batchFilter : undefined,
+        listFilter: listFilter.values.length > 0 ? listFilter : undefined,
         search: search || undefined,
         filters: filters.length > 0 ? filters : undefined,
       });
@@ -214,6 +234,7 @@ export default function LeadsPage() {
           <LeadExport
             clientId={clientId}
             batchFilter={batchFilter}
+            listFilter={listFilter}
             search={search}
             filters={filters}
             sortColumn={sortColumn}
@@ -235,6 +256,9 @@ export default function LeadsPage() {
         batches={batches}
         batchFilter={batchFilter}
         onBatchFilterChange={handleBatchFilterChange}
+        listValues={listValues}
+        listFilter={listFilter}
+        onListFilterChange={handleListFilterChange}
       />
 
       {/* Bulk actions */}

@@ -57,10 +57,18 @@ export type BatchFilter = {
   ids: string[];
 };
 
+export type ListFilter = {
+  values: string[];
+};
+
+// The custom_fields JSONB key that the "List" column and filter operate on.
+export const LIST_FIELD_KEY = "List";
+
 export type FetchLeadsParams = {
   clientId?: string;
   batchId?: string;
   batchFilter?: BatchFilter;
+  listFilter?: ListFilter;
   search?: string;
   filters?: ColumnFilter[];
   customFieldKeys?: string[];
@@ -137,7 +145,7 @@ export async function registerCustomFieldOrder(newFields: string[]): Promise<voi
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function applyFilters<T extends { eq: any; or: any; ilike: any; filter: any; in: any; not: any }>(
   query: T,
-  params: Pick<FetchLeadsParams, "clientId" | "batchId" | "batchFilter" | "search" | "filters" | "customFieldKeys">
+  params: Pick<FetchLeadsParams, "clientId" | "batchId" | "batchFilter" | "listFilter" | "search" | "filters" | "customFieldKeys">
 ): T {
   let q = query;
 
@@ -153,6 +161,10 @@ function applyFilters<T extends { eq: any; or: any; ilike: any; filter: any; in:
     }
   } else if (params.batchId) {
     q = q.eq("upload_batch_id", params.batchId);
+  }
+
+  if (params.listFilter && params.listFilter.values.length > 0) {
+    q = q.in(`custom_fields->>${LIST_FIELD_KEY}` as never, params.listFilter.values);
   }
 
   if (params.search) {
@@ -220,7 +232,7 @@ export async function fetchLeads(params: FetchLeadsParams) {
 
 /** Fetch ALL lead IDs matching filters (for "select all filtered") */
 export async function fetchAllFilteredLeadIds(
-  params: Pick<FetchLeadsParams, "clientId" | "batchId" | "batchFilter" | "search" | "filters" | "customFieldKeys">
+  params: Pick<FetchLeadsParams, "clientId" | "batchId" | "batchFilter" | "listFilter" | "search" | "filters" | "customFieldKeys">
 ): Promise<string[]> {
   const ids: string[] = [];
   const batchSize = 1000;
@@ -246,7 +258,7 @@ export async function fetchAllFilteredLeadIds(
 
 /** Fetch ALL leads matching filters (for CSV export) */
 export async function fetchAllFilteredLeads(
-  params: Pick<FetchLeadsParams, "clientId" | "batchId" | "batchFilter" | "search" | "filters" | "customFieldKeys" | "sortColumn" | "sortDir">
+  params: Pick<FetchLeadsParams, "clientId" | "batchId" | "batchFilter" | "listFilter" | "search" | "filters" | "customFieldKeys" | "sortColumn" | "sortDir">
 ): Promise<Lead[]> {
   const leads: Lead[] = [];
   const batchSize = 1000;
@@ -381,6 +393,56 @@ export async function fetchUploadBatches(
   const { data, error } = await q;
   if (error) throw new Error(error.message);
   return (data || []) as UploadBatch[];
+}
+
+/**
+ * Fetch distinct values of the "List" custom field (optionally scoped to a client).
+ * Uses the get_custom_field_values RPC (migration 003). Falls back to scanning
+ * leads in pages if the RPC is missing — safe but slower on large tables.
+ */
+export async function fetchListValues(clientId?: string): Promise<string[]> {
+  const { data, error } = await supabase.rpc("get_custom_field_values", {
+    field_name: LIST_FIELD_KEY,
+    p_client_id: clientId ?? null,
+  });
+
+  if (error) {
+    if (error.code === "42883" || error.message.includes("does not exist")) {
+      return fetchListValuesFallback(clientId);
+    }
+    throw new Error(error.message);
+  }
+
+  return (data || [])
+    .map((r: { value: string | null }) => r.value)
+    .filter((v: string | null): v is string => !!v);
+}
+
+async function fetchListValuesFallback(clientId?: string): Promise<string[]> {
+  const values = new Set<string>();
+  const batchSize = 1000;
+  let offset = 0;
+
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    let q = supabase.from("leads").select("custom_fields");
+    if (clientId) q = q.eq("client_id", clientId);
+    q = q.range(offset, offset + batchSize - 1);
+
+    const { data, error } = await q;
+    if (error) throw new Error(error.message);
+    if (!data || data.length === 0) break;
+
+    for (const row of data) {
+      const cf = row.custom_fields as Record<string, string> | null;
+      const v = cf?.[LIST_FIELD_KEY];
+      if (v) values.add(v);
+    }
+    if (data.length < batchSize) break;
+    offset += batchSize;
+  }
+
+  return Array.from(values).sort();
 }
 
 /** Fetch all clients */
