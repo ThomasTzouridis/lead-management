@@ -170,13 +170,19 @@ function applyFilters<T extends { eq: any; or: any; ilike: any; filter: any; in:
   if (params.search) {
     // Escape LIKE wildcards in search term
     const escaped = params.search.replace(/[%_\\]/g, "\\$&");
-    const term = `%${escaped}%`;
+    // Wrap the value in double quotes so spaces, commas, dots, parens in the
+    // term don't break PostgREST's or=(...) filter grammar.
+    const term = `"%${escaped.replace(/"/g, '\\"')}%"`;
+    // Drop custom-field keys with chars that break PostgREST's filter parser
+    // (e.g. `title+company` — `+` URL-decodes to a space and corrupts the
+    // column reference). Keep to alphanumeric + underscore.
+    const safeCustomKeys = (params.customFieldKeys || []).filter((k) =>
+      /^[a-zA-Z0-9_]+$/.test(k)
+    );
     // Search fixed columns + each custom field key individually
     const orClauses = [
       ...SEARCHABLE_COLUMNS.map((c) => `${c}.ilike.${term}`),
-      ...(params.customFieldKeys || []).map(
-        (k) => `custom_fields->>${k}.ilike.${term}`
-      ),
+      ...safeCustomKeys.map((k) => `custom_fields->>${k}.ilike.${term}`),
     ].join(",");
     q = q.or(orClauses);
   }
