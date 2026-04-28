@@ -238,25 +238,49 @@ export async function fetchLeads(params: FetchLeadsParams) {
 
 /** Fetch ALL lead IDs matching filters (for "select all filtered") */
 export async function fetchAllFilteredLeadIds(
-  params: Pick<FetchLeadsParams, "clientId" | "batchId" | "batchFilter" | "listFilter" | "search" | "filters" | "customFieldKeys">
+  params: Pick<
+    FetchLeadsParams,
+    | "clientId"
+    | "batchId"
+    | "batchFilter"
+    | "listFilter"
+    | "search"
+    | "filters"
+    | "customFieldKeys"
+    | "sortColumn"
+    | "sortDir"
+  > & { limit?: number }
 ): Promise<string[]> {
   const ids: string[] = [];
   const batchSize = 1000;
   let offset = 0;
 
+  // Custom-field sort can't be done server-side (JSONB); fall back to created_at.
+  const sortCol =
+    params.sortColumn && !params.sortColumn.startsWith("cf:")
+      ? params.sortColumn
+      : "created_at";
+  const ascending = params.sortDir === "asc";
+  const limit = params.limit;
+
   // eslint-disable-next-line no-constant-condition
   while (true) {
+    const remaining = limit != null ? limit - ids.length : Infinity;
+    if (remaining <= 0) break;
+    const take = Math.min(batchSize, remaining);
+
     let query = supabase.from("leads").select("id");
     query = applyFilters(query, params);
-    query = query.range(offset, offset + batchSize - 1);
+    query = query.order(sortCol, { ascending });
+    query = query.range(offset, offset + take - 1);
 
     const { data, error } = await query;
     if (error) throw new Error(error.message);
     if (!data || data.length === 0) break;
 
     ids.push(...data.map((d: { id: string }) => d.id));
-    if (data.length < batchSize) break;
-    offset += batchSize;
+    if (data.length < take) break;
+    offset += take;
   }
 
   return ids;

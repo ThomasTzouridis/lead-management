@@ -7,6 +7,8 @@ import { LeadPagination } from "@/components/leads/lead-pagination";
 import { LeadExport } from "@/components/leads/lead-export";
 import { LeadDelete } from "@/components/leads/lead-delete";
 import { LeadBulkFill } from "@/components/leads/lead-bulk-fill";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import {
   fetchLeads,
   fetchClients,
@@ -194,10 +196,11 @@ export default function LeadsPage() {
     setSelectedIds(new Set());
   }
 
-  // ── "Select all filtered" ──────────────────────────────────────────
+  // ── "Select all filtered" / "Select first N" ───────────────────────
   const [selectingAll, setSelectingAll] = useState(false);
+  const [selectNInput, setSelectNInput] = useState("");
 
-  async function selectAllFiltered() {
+  async function selectAllFiltered(limit?: number) {
     setSelectingAll(true);
     try {
       const ids = await fetchAllFilteredLeadIds({
@@ -206,6 +209,9 @@ export default function LeadsPage() {
         listFilter: listFilter.values.length > 0 ? listFilter : undefined,
         search: search || undefined,
         filters: filters.length > 0 ? filters : undefined,
+        sortColumn,
+        sortDir,
+        limit,
       });
       setSelectedIds(new Set(ids));
       toast.success(`Selected ${ids.length.toLocaleString()} leads`);
@@ -216,6 +222,15 @@ export default function LeadsPage() {
     } finally {
       setSelectingAll(false);
     }
+  }
+
+  function handleSelectN() {
+    const n = parseInt(selectNInput, 10);
+    if (!Number.isFinite(n) || n <= 0) {
+      toast.error("Enter a positive number");
+      return;
+    }
+    selectAllFiltered(Math.min(n, totalCount));
   }
 
   const selectedArr = useMemo(() => Array.from(selectedIds), [selectedIds]);
@@ -261,6 +276,50 @@ export default function LeadsPage() {
         onListFilterChange={handleListFilterChange}
       />
 
+      {/* Quick select N */}
+      <div className="flex items-center gap-2 flex-wrap text-sm">
+        <span className="text-muted-foreground">Select first</span>
+        <Input
+          type="number"
+          min={1}
+          max={totalCount || undefined}
+          value={selectNInput}
+          onChange={(e) => setSelectNInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleSelectN();
+          }}
+          placeholder="500"
+          className="w-24 h-8"
+          disabled={selectingAll || totalCount === 0}
+        />
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-8"
+          onClick={handleSelectN}
+          disabled={selectingAll || !selectNInput || totalCount === 0}
+        >
+          {selectingAll ? "Selecting..." : "Select"}
+        </Button>
+        <span className="text-muted-foreground">
+          of {totalCount.toLocaleString()} filtered
+        </span>
+        {[100, 500, 1000].map((n) => (
+          <button
+            key={n}
+            type="button"
+            className="text-xs text-primary hover:underline disabled:opacity-50"
+            onClick={() => {
+              setSelectNInput(String(n));
+              selectAllFiltered(Math.min(n, totalCount));
+            }}
+            disabled={selectingAll || totalCount === 0 || n > totalCount}
+          >
+            {n.toLocaleString()}
+          </button>
+        ))}
+      </div>
+
       {/* Bulk actions */}
       {selectedIds.size > 0 && (
         <div className="flex items-center gap-3 flex-wrap">
@@ -270,7 +329,7 @@ export default function LeadsPage() {
           {selectedIds.size < totalCount && (
             <button
               className="text-sm text-primary hover:underline"
-              onClick={selectAllFiltered}
+              onClick={() => selectAllFiltered()}
               disabled={selectingAll}
             >
               {selectingAll
