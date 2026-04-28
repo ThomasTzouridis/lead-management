@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 import {
   fetchAllFilteredLeads,
+  fetchLeadsByIds,
   LEAD_COLUMNS,
   type Lead,
   type ColumnFilter,
@@ -21,6 +22,7 @@ type Props = {
   filters?: ColumnFilter[];
   sortColumn?: string;
   sortDir?: "asc" | "desc";
+  selectedIds?: string[];
 };
 
 function escapeCSV(val: unknown): string {
@@ -33,21 +35,24 @@ function escapeCSV(val: unknown): string {
     : str;
 }
 
-export function LeadExport({ clientId, batchFilter, listFilter, search, filters, sortColumn, sortDir }: Props) {
+export function LeadExport({ clientId, batchFilter, listFilter, search, filters, sortColumn, sortDir, selectedIds }: Props) {
   const [exporting, setExporting] = useState(false);
+  const hasSelection = !!selectedIds && selectedIds.length > 0;
 
   async function handleExport() {
     setExporting(true);
     try {
-      const leads = await fetchAllFilteredLeads({
-        clientId: clientId && clientId !== "all" ? clientId : undefined,
-        batchFilter: batchFilter && batchFilter.ids.length > 0 ? batchFilter : undefined,
-        listFilter: listFilter && listFilter.values.length > 0 ? listFilter : undefined,
-        search,
-        filters,
-        sortColumn,
-        sortDir,
-      });
+      const leads = hasSelection
+        ? await fetchLeadsByIds(selectedIds!)
+        : await fetchAllFilteredLeads({
+            clientId: clientId && clientId !== "all" ? clientId : undefined,
+            batchFilter: batchFilter && batchFilter.ids.length > 0 ? batchFilter : undefined,
+            listFilter: listFilter && listFilter.values.length > 0 ? listFilter : undefined,
+            search,
+            filters,
+            sortColumn,
+            sortDir,
+          });
 
       if (leads.length === 0) {
         toast.error("No leads to export");
@@ -125,7 +130,11 @@ export function LeadExport({ clientId, batchFilter, listFilter, search, filters,
       className="gap-1.5"
     >
       <Download className="size-3.5" />
-      {exporting ? "Exporting..." : "Download CSV"}
+      {exporting
+        ? "Exporting..."
+        : hasSelection
+          ? `Download CSV (${selectedIds!.length.toLocaleString()})`
+          : "Download CSV"}
     </Button>
   );
 }

@@ -286,6 +286,22 @@ export async function fetchAllFilteredLeadIds(
   return ids;
 }
 
+/** Fetch leads by a list of IDs (for selection-scoped exports) */
+export async function fetchLeadsByIds(ids: string[]): Promise<Lead[]> {
+  if (ids.length === 0) return [];
+  const out: Lead[] = [];
+  // Supabase .in() works for ~1000 ids per call — chunk to be safe
+  for (let i = 0; i < ids.length; i += 500) {
+    const chunk = ids.slice(i, i + 500);
+    const { data, error } = await supabase.from("leads").select("*").in("id", chunk);
+    if (error) throw new Error(error.message);
+    if (data) out.push(...(data as Lead[]));
+  }
+  // Preserve the order of the input ids (which already reflects current sort)
+  const byId = new Map(out.map((l) => [l.id, l]));
+  return ids.map((id) => byId.get(id)).filter((l): l is Lead => l != null);
+}
+
 /** Fetch ALL leads matching filters (for CSV export) */
 export async function fetchAllFilteredLeads(
   params: Pick<FetchLeadsParams, "clientId" | "batchId" | "batchFilter" | "listFilter" | "search" | "filters" | "customFieldKeys" | "sortColumn" | "sortDir">

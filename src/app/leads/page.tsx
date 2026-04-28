@@ -254,6 +254,7 @@ export default function LeadsPage() {
             filters={filters}
             sortColumn={sortColumn}
             sortDir={sortDir}
+            selectedIds={selectedArr}
           />
         </div>
       </div>
