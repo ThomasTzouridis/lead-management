@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -22,11 +22,16 @@ type Props = {
 
 type Client = { id: string; name: string; slug: string };
 
+type ContextMenuState = { client: Client; x: number; y: number };
+
 export function StepClient({ state, onUpdate, onNext }: Props) {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState("");
   const [creating, setCreating] = useState(false);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const contextMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -45,6 +50,49 @@ export function StepClient({ state, onUpdate, onNext }: Props) {
     load();
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    if (!contextMenu) return;
+    const onMouseDown = (e: MouseEvent) => {
+      if (contextMenuRef.current?.contains(e.target as Node)) return;
+      setContextMenu(null);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setContextMenu(null);
+    };
+    const onScroll = () => setContextMenu(null);
+    window.addEventListener("mousedown", onMouseDown);
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("mousedown", onMouseDown);
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [contextMenu]);
+
+  async function deleteClient(client: Client) {
+    setContextMenu(null);
+    const confirmed = window.confirm(
+      `Delete client "${client.name}"?\n\nThis will also delete all leads and upload batches belonging to this client. This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setDeletingId(client.id);
+    const { error } = await supabase.from("clients").delete().eq("id", client.id);
+    setDeletingId(null);
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    toast.success(`Deleted "${client.name}"`);
+    setClients((prev) => prev.filter((c) => c.id !== client.id));
+    if (state.clientId === client.id) {
+      onUpdate({ clientId: "", clientName: "" });
+    }
+  }
 
   async function createClient() {
     if (creating) return; // prevent double-submit
@@ -128,8 +176,21 @@ export function StepClient({ state, onUpdate, onNext }: Props) {
               </SelectTrigger>
               <SelectContent>
                 {clients.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
+                  <SelectItem
+                    key={c.id}
+                    value={c.id}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setContextMenu({ client: c, x: e.clientX, y: e.clientY });
+                    }}
+                  >
                     {c.name}
+                    {deletingId === c.id && (
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        deleting...
+                      </span>
+                    )}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -167,6 +228,24 @@ export function StepClient({ state, onUpdate, onNext }: Props) {
           Next
         </Button>
       </div>
+
+      {contextMenu && (
+        <div
+          ref={contextMenuRef}
+          role="menu"
+          className="fixed z-[100] min-w-[160px] overflow-hidden rounded-md border bg-popover py-1 text-sm text-popover-foreground shadow-md ring-1 ring-foreground/10"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+          onContextMenu={(e) => e.preventDefault()}
+        >
+          <button
+            type="button"
+            className="block w-full px-3 py-1.5 text-left text-destructive hover:bg-accent focus:bg-accent focus:outline-none"
+            onClick={() => deleteClient(contextMenu.client)}
+          >
+            Delete &quot;{contextMenu.client.name}&quot;
+          </button>
+        </div>
+      )}
     </div>
   );
 }
